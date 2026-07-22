@@ -47,7 +47,7 @@ export async function POST(request) {
       photoURL,
       username,
     } = payload;
-
+    console.log("Received payload:", payload);
     await connectToDatabase();
 
     if (action === "login" || action === "upsert") {
