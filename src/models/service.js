@@ -34,7 +34,7 @@ const ConsumerManagementSchema = new mongoose.Schema(
   { _id: false },
 );
 
-const growCleaningSchema = new mongoose.Schema(
+export const growCleaningSchema = new mongoose.Schema(
   {
     fullName: {
       type: String,

@@ -1,10 +1,10 @@
 import { connectToDatabase } from "../../lib/mongodb.js";
-import GrowCleaningApplication from "../../models/service.js";
+import User from "../../models/user.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 function jsonResponse(body, init = {}) {
@@ -42,12 +42,12 @@ export async function GET(request) {
 
     await connectToDatabase();
 
-    const application = await GrowCleaningApplication.findOne({
-      consumerNumber: consumerNumber,
-      "userProfile.userToken": userToken,
+    const user = await User.findOne({
+      "growCleaning.consumerNumber": consumerNumber,
+      "growCleaning.userProfile.userToken": userToken,
     });
 
-    if (!application) {
+    if (!user || !user.growCleaning) {
       return jsonResponse(
         {
           success: false,
@@ -59,7 +59,7 @@ export async function GET(request) {
 
     return jsonResponse({
       success: true,
-      data: application,
+      data: user.growCleaning,
     });
   } catch (error) {
     console.error("Failed to fetch consumer data:", error);

@@ -4,6 +4,7 @@ const { pathToFileURL } = require("node:url");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const { authenticate, optionalAuthenticate } = require("./middleware/auth");
 
 const envPath = path.resolve(__dirname, ".env.local");
 const defaultEnvPath = path.resolve(__dirname, ".env");
@@ -13,7 +14,12 @@ dotenv.config({ path: defaultEnvPath });
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json({ limit: "10mb" }));
 
 const MONGO_URI =
@@ -96,6 +102,11 @@ app.get("/", (req, res) => {
     message: "Growmax Backend Running",
   });
 });
+
+app.use("/api/fetchConsumer", authenticate);
+app.use("/api/fetchUserToken", optionalAuthenticate);
+app.use("/api/user-profile", authenticate);
+app.use("/api/grow-cleaning", optionalAuthenticate);
 
 app.options("/api/fetchConsumer", async (req, res) => {
   const { OPTIONS } = await loadApiModule("src/app/api/fetchConsumer.js");

@@ -1,12 +1,12 @@
 import crypto from "crypto";
 import { validateGrowCleaningPayload } from "../../lib/growCleaningValidation.js";
 import { connectToDatabase } from "../../lib/mongodb.js";
-import GrowCleaningApplication from "../../models/service.js";
+import User from "../../models/user.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 function jsonResponse(body, init = {}) {
@@ -85,6 +85,7 @@ export function GET() {
 export async function POST(request) {
   try {
     const payload = await request.json();
+    const { googleUid, username, email, photoURL } = payload;
 
     const { data, errors, isValid } =
       validateGrowCleaningPayload(payload);
@@ -102,6 +103,18 @@ export async function POST(request) {
       );
     }
 
+    if (!email) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "Google email is required to create a user profile.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     await connectToDatabase();
 
     let sitePhotoUrl = "";
@@ -112,67 +125,65 @@ export async function POST(request) {
       );
     }
 
-    // Generate unique user token
     let userToken;
     let tokenExists = true;
 
     while (tokenExists) {
       userToken = generateUserToken(10);
 
-      tokenExists = await GrowCleaningApplication.exists({
-        userToken,
+      tokenExists = await User.exists({
+        "growCleaning.userProfile.userToken": userToken,
       });
     }
 
-    const application = await GrowCleaningApplication.create({
-      ...data,
-
-        userProfile: {
-          userName: data.userName || "",
-          userToken: userToken,
+    const user = await User.findOneAndUpdate(
+      { email: String(email).toLowerCase() },
+      {
+        $setOnInsert: {
+          email: String(email).toLowerCase(),
         },
-
-      latitude: Number(data.latitude),
-
-      longitude: Number(data.longitude),
-
-      numberOfPanels: Number(data.numberOfPanels) || 1,
-
-      sprinkler: Boolean(data.sprinkler),
-
-      walkwayAndLadder: Boolean(data.walkwayAndLadder),
-
-      consumerNumber: data.consumerNumber || "",
-
-      consumerNo:
-        data.consumerNo || data.consumerNumber || "",
-
-      landmark: data.landmark || "",
-
-      sitePhotoBase64: undefined,
-
-      sitePhotoPreview: undefined,
-
-      sitePhotoUrl,
-
-      status: "pending",
-    });
+        $set: {
+          googleUid: googleUid || "",
+          username: username || data.fullName || "",
+          email: String(email).toLowerCase(),
+          photoURL: photoURL || "",
+          provider: "google",
+          growCleaning: {
+            ...data,
+            userProfile: {
+              userName: username || data.fullName || "",
+              userToken,
+            },
+            latitude: Number(data.latitude),
+            longitude: Number(data.longitude),
+            numberOfPanels: Number(data.numberOfPanels) || 1,
+            sprinkler: Boolean(data.sprinkler),
+            walkwayAndLadder: Boolean(data.walkwayAndLadder),
+            consumerNumber: data.consumerNumber || "",
+            consumerNo: data.consumerNo || data.consumerNumber || "",
+            landmark: data.landmark || "",
+            sitePhotoUrl,
+            status: "pending",
+          },
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      },
+    );
 
     return jsonResponse(
       {
         success: true,
         message: "Application submitted successfully.",
-
         data: {
-          id: application._id,
-
-          userToken: application.userProfile.userToken,
-
-          status: application.status,
-
-          sitePhotoUrl: application.sitePhotoUrl,
-
-          createdAt: application.createdAt,
+          id: user._id,
+          userToken,
+          status: user.growCleaning.status,
+          sitePhotoUrl: user.growCleaning.sitePhotoUrl,
+          createdAt: user.createdAt,
         },
       },
       {

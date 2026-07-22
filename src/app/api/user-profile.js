@@ -1,12 +1,12 @@
 
 import crypto from "crypto";
 import { connectToDatabase } from "../../lib/mongodb.js";
-import GrowCleaningApplication from "../../models/service.js";
+import User from "../../models/user.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 function jsonResponse(body, init = {}) {
@@ -38,7 +38,59 @@ function generateRefreshToken(length = 64) {
 export async function POST(request) {
   try {
     const payload = await request.json();
-    const { userToken, userName, action } = payload;
+    const {
+      userToken,
+      userName,
+      action,
+      googleUid,
+      email,
+      photoURL,
+      username,
+    } = payload;
+
+    await connectToDatabase();
+
+    if (action === "login" || action === "upsert") {
+      if (!email) {
+        return jsonResponse(
+          {
+            success: false,
+            message: "Google email is required.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const sanitizedEmail = String(email).toLowerCase();
+      const loginUser = await User.findOneAndUpdate(
+        { email: sanitizedEmail },
+        {
+          $set: {
+            googleUid: googleUid || "",
+            email: sanitizedEmail,
+            username: username || userName || "",
+            photoURL: photoURL || "",
+            provider: "google",
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+          setDefaultsOnInsert: true,
+        },
+      );
+
+      return jsonResponse({
+        success: true,
+        message: "Google user synced successfully.",
+        data: {
+          id: loginUser._id,
+          email: loginUser.email,
+          username: loginUser.username,
+          googleUid: loginUser.googleUid,
+        },
+      });
+    }
 
     if (!userToken) {
       return jsonResponse(
@@ -50,14 +102,11 @@ export async function POST(request) {
       );
     }
 
-    await connectToDatabase();
-
-    // Find the application by user token
-    const application = await GrowCleaningApplication.findOne({
-      "userProfile.userToken": userToken,
+    const user = await User.findOne({
+      "growCleaning.userProfile.userToken": userToken,
     });
 
-    if (!application) {
+    if (!user || !user.growCleaning) {
       return jsonResponse(
         {
           success: false,
@@ -75,13 +124,14 @@ export async function POST(request) {
       const refreshTokenExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
       // Update the application
-      application.userProfile.userName = userName || application.userProfile.userName;
-      application.userProfile.secureToken = secureToken;
-      application.userProfile.refreshToken = refreshToken;
-      application.userProfile.secureTokenExpiry = secureTokenExpiry;
-      application.userProfile.refreshTokenExpiry = refreshTokenExpiry;
+      user.username = userName || user.username || user.growCleaning.userProfile.userName;
+      user.growCleaning.userProfile.userName = userName || user.growCleaning.userProfile.userName;
+      user.growCleaning.userProfile.secureToken = secureToken;
+      user.growCleaning.userProfile.refreshToken = refreshToken;
+      user.growCleaning.userProfile.secureTokenExpiry = secureTokenExpiry;
+      user.growCleaning.userProfile.refreshTokenExpiry = refreshTokenExpiry;
 
-      await application.save();
+      await user.save();
 
       return jsonResponse({
         success: true,
@@ -91,8 +141,8 @@ export async function POST(request) {
           refreshToken,
           secureTokenExpiry,
           refreshTokenExpiry,
-          userName: application.userProfile.userName,
-          userToken: application.userProfile.userToken,
+          userName: user.growCleaning.userProfile.userName,
+          userToken: user.growCleaning.userProfile.userToken,
         },
       });
     } else if (action === "refresh") {
@@ -107,9 +157,9 @@ export async function POST(request) {
 
       // Check if refresh token matches and is not expired
       if (
-        application.userProfile.refreshToken !== providedRefreshToken ||
-        !application.userProfile.refreshTokenExpiry ||
-        new Date() > application.userProfile.refreshTokenExpiry
+        user.growCleaning.userProfile.refreshToken !== providedRefreshToken ||
+        !user.growCleaning.userProfile.refreshTokenExpiry ||
+        new Date() > user.growCleaning.userProfile.refreshTokenExpiry
       ) {
         return jsonResponse(
           { success: false, message: "Invalid or expired refresh token. Please re-enter username to regenerate." },
@@ -123,12 +173,12 @@ export async function POST(request) {
       const newSecureTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       const newRefreshTokenExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-      application.userProfile.secureToken = newSecureToken;
-      application.userProfile.refreshToken = newRefreshToken;
-      application.userProfile.secureTokenExpiry = newSecureTokenExpiry;
-      application.userProfile.refreshTokenExpiry = newRefreshTokenExpiry;
+      user.growCleaning.userProfile.secureToken = newSecureToken;
+      user.growCleaning.userProfile.refreshToken = newRefreshToken;
+      user.growCleaning.userProfile.secureTokenExpiry = newSecureTokenExpiry;
+      user.growCleaning.userProfile.refreshTokenExpiry = newRefreshTokenExpiry;
 
-      await application.save();
+      await user.save();
 
       return jsonResponse({
         success: true,
@@ -174,11 +224,11 @@ export async function GET(request) {
 
     await connectToDatabase();
 
-    const application = await GrowCleaningApplication.findOne({
-      "userProfile.secureToken": secureToken,
+    const user = await User.findOne({
+      "growCleaning.userProfile.secureToken": secureToken,
     });
 
-    if (!application) {
+    if (!user || !user.growCleaning) {
       return jsonResponse(
         { success: false, message: "Invalid secure token." },
         { status: 404 }
@@ -187,8 +237,8 @@ export async function GET(request) {
 
     // Check if token is expired
     if (
-      !application.userProfile.secureTokenExpiry ||
-      new Date() > application.userProfile.secureTokenExpiry
+      !user.growCleaning.userProfile.secureTokenExpiry ||
+      new Date() > user.growCleaning.userProfile.secureTokenExpiry
     ) {
       return jsonResponse(
         { success: false, message: "Secure token expired. Please refresh or re-authenticate.", expired: true },
@@ -199,8 +249,8 @@ export async function GET(request) {
     return jsonResponse({
       success: true,
       data: {
-        userToken: application.userProfile.userToken,
-        userName: application.userProfile.userName,
+        userToken: user.growCleaning.userProfile.userToken,
+        userName: user.growCleaning.userProfile.userName,
       },
     });
   } catch (error) {
