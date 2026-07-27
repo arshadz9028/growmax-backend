@@ -1,5 +1,38 @@
 import mongoose from "mongoose";
-import { growCleaningSchema } from "./service.js";
+
+const userProfileSchema = new mongoose.Schema(
+  {
+    userToken: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    secureToken: {
+      type: String,
+      default: "",
+    },
+
+    refreshToken: {
+      type: String,
+      default: "",
+    },
+
+    secureTokenExpiry: {
+      type: Date,
+      default: null,
+    },
+
+    refreshTokenExpiry: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    _id: false,
+  }
+);
 
 const userSchema = new mongoose.Schema(
   {
@@ -9,11 +42,13 @@ const userSchema = new mongoose.Schema(
       index: true,
       trim: true,
     },
+
     username: {
       type: String,
       default: "",
       trim: true,
     },
+
     email: {
       type: String,
       required: true,
@@ -22,27 +57,31 @@ const userSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+
     provider: {
       type: String,
+      enum: ["google"],
       default: "google",
-      trim: true,
     },
+
     photoURL: {
       type: String,
       default: "",
-      trim: true,
     },
-    growCleaning: {
-      type: growCleaningSchema,
-      default: null,
+
+    userProfile: {
+      type: userProfileSchema,
+      required: true,
     },
   },
   {
     timestamps: true,
     collection: "users",
-  },
+  }
 );
 
-const User = mongoose.models.User || mongoose.model("User", userSchema, "users");
+const User =
+  mongoose.models.User ||
+  mongoose.model("User", userSchema);
 
 export default User;

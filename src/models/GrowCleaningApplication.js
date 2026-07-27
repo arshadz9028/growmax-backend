@@ -1,21 +1,30 @@
 import mongoose from "mongoose";
+
 const VisitSchema = new mongoose.Schema(
   {
-    date: { type: Date, required: true },
+    date: {
+      type: Date,
+      required: true,
+    },
+
     status: {
       type: String,
       enum: ["UpComing", "Pending", "Completed"],
       default: "UpComing",
     },
   },
-  { _id: false },
+  {
+    _id: false,
+  }
 );
+
 const ConsumerManagementSchema = new mongoose.Schema(
   {
     userCode: {
       type: String,
       default: "",
     },
+
     totalVisit: {
       type: Number,
       default: 14,
@@ -25,68 +34,60 @@ const ConsumerManagementSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+
     remainingVisit: {
       type: Number,
       default: 14,
     },
-    selectedVisits: [VisitSchema],
+
+    selectedVisits: {
+      type: [VisitSchema],
+      default: [],
+    },
   },
-  { _id: false },
+  {
+    _id: false,
+  }
 );
 
-export const growCleaningSchema = new mongoose.Schema(
+const GrowCleaningApplicationSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
     fullName: {
       type: String,
       required: true,
       trim: true,
     },
+
     mobileNumber: {
       type: String,
       required: true,
       trim: true,
     },
+
     email: {
       type: String,
       required: true,
-      trim: true,
       lowercase: true,
+      trim: true,
     },
+
     address: {
       type: String,
       required: true,
       trim: true,
     },
+
     city: {
       type: String,
       required: true,
       trim: true,
-    },
-    userProfile: {
-      userName: {
-        type: String,
-        default: "",
-      },
-      userToken: {
-        type: String,
-        required: true,
-        unique: true,
-        index: true,
-      },
-      secureToken: {
-        type: String,
-        default: "",
-      },
-      refreshToken: {
-        type: String,
-        default: "",
-      },
-      secureTokenExpiry: {
-        type: Date,
-      },
-      refreshTokenExpiry: {
-        type: Date,
-      },
     },
 
     state: {
@@ -94,47 +95,105 @@ export const growCleaningSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
     pinCode: {
       type: String,
       required: true,
       trim: true,
     },
+
     consumerNumber: {
       type: String,
-      trim: true,
       default: "",
+      trim: true,
     },
+
     consumerNo: {
       type: String,
-      trim: true,
       default: "",
+      trim: true,
     },
-    isNewNotification: { type: Boolean, default: true },
-    requestStatus: { type: String, default: "pending" },
 
-    agreedToTerms: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
     latitude: {
       type: Number,
       required: true,
     },
+
     longitude: {
       type: Number,
       required: true,
     },
+
     locationAddress: {
       type: String,
-      trim: true,
       default: "",
+      trim: true,
     },
+
+    landmark: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     sitePhotoUrl: {
       type: String,
+      default: "",
       trim: true,
+    },
+
+    agreedToTerms: {
+      type: Boolean,
+      default: false,
+    },
+
+    paymentMethod: {
+      type: String,
+      default: "pending",
+    },
+
+    transactionId: {
+      type: String,
       default: "",
     },
+
+    numberOfPanels: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
+    sprinkler: {
+      type: Boolean,
+      default: false,
+    },
+
+    walkwayAndLadder: {
+      type: Boolean,
+      default: false,
+    },
+
+    requestStatus: {
+      type: String,
+      default: "pending",
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "contacted",
+        "completed",
+        "cancelled",
+      ],
+      default: "pending",
+    },
+
+    isNewNotification: {
+      type: Boolean,
+      default: true,
+    },
+
     consumerManagement: {
       type: ConsumerManagementSchema,
       default: () => ({
@@ -145,54 +204,16 @@ export const growCleaningSchema = new mongoose.Schema(
         selectedVisits: [],
       }),
     },
-    paymentMethod: {
-      type: String,
-      required: true,
-      trim: true,
-      default: "pending",
-    },
-    transactionId: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    numberOfPanels: {
-      type: Number,
-      required: true,
-      min: 1,
-      default: 1,
-    },
-    sprinkler: {
-      type: Boolean,
-      default: false,
-    },
-    walkwayAndLadder: {
-      type: Boolean,
-      default: false,
-    },
-    landmark: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    status: {
-      type: String,
-      enum: ["pending", "contacted", "completed", "cancelled"],
-      default: "pending",
-    },
   },
   {
     timestamps: true,
-    collection: "servicerecords",
-  },
+    collection: "growCleaningApplications",
+  }
 );
 
-const GrowCleaningApplication =
+export default
   mongoose.models.GrowCleaningApplication ||
   mongoose.model(
     "GrowCleaningApplication",
-    growCleaningSchema,
-    "servicerecords",
+    GrowCleaningApplicationSchema
   );
-
-export default GrowCleaningApplication;

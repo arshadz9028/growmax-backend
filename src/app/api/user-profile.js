@@ -1,7 +1,7 @@
 
 import crypto from "crypto";
 import { connectToDatabase } from "../../lib/mongodb.js";
-import User from "../../models/user.js";
+import User from "../../models/User.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,23 +62,36 @@ export async function POST(request) {
       }
 
       const sanitizedEmail = String(email).toLowerCase();
-      const loginUser = await User.findOneAndUpdate(
-        { email: sanitizedEmail },
-        {
-          $set: {
-            googleUid: googleUid || "",
-            email: sanitizedEmail,
-            username: username || userName || "",
-            photoURL: photoURL || "",
-            provider: "google",
-          },
-        },
-        {
-          new: true,
-          upsert: true,
-          setDefaultsOnInsert: true,
-        },
-      );
+      // const loginUser = await User.findOneAndUpdate(
+      //   { email: sanitizedEmail },
+      //   {
+      //     $set: {
+      //       googleUid: googleUid || "",
+      //       email: sanitizedEmail,
+      //       username: username || userName || "",
+      //       photoURL: photoURL || "",
+      //       provider: "google",
+      //     },
+      //   },
+      //   {
+      //     new: true,
+      //     upsert: true,
+      //     setDefaultsOnInsert: true,
+      //   },
+      // );
+let loginUser = await User.findOne({
+    email: sanitizedEmail,
+});
+
+if (!loginUser) {
+    loginUser = new User({
+        email: sanitizedEmail,
+        username: username || userName || "",
+        googleUid,
+        photoURL,
+        provider: "google",
+    });
+}
 
       return jsonResponse({
         success: true,

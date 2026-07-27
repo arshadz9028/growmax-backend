@@ -85,7 +85,20 @@ export function GET() {
 export async function POST(request) {
   try {
     const payload = await request.json();
-    const { googleUid, username, email, photoURL } = payload;
+
+    const { userToken } = payload;
+
+    if (!userToken) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "User token is required.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
 
     const { data, errors, isValid } =
       validateGrowCleaningPayload(payload);
@@ -103,19 +116,23 @@ export async function POST(request) {
       );
     }
 
-    if (!email) {
+    await connectToDatabase();
+
+    const user = await User.findOne({
+      "userProfile.userToken": userToken,
+    });
+
+    if (!user) {
       return jsonResponse(
         {
           success: false,
-          message: "Google email is required to create a user profile.",
+          message: "User not found.",
         },
         {
-          status: 400,
+          status: 404,
         }
       );
     }
-
-    await connectToDatabase();
 
     let sitePhotoUrl = "";
 
@@ -125,65 +142,86 @@ export async function POST(request) {
       );
     }
 
-    let userToken;
-    let tokenExists = true;
+    const application =
+      await GrowCleaningApplication.create({
+        userId: user._id,
 
-    while (tokenExists) {
-      userToken = generateUserToken(10);
+        fullName: data.fullName,
 
-      tokenExists = await User.exists({
-        "growCleaning.userProfile.userToken": userToken,
+        mobileNumber: data.mobileNumber,
+
+        email: user.email,
+
+        address: data.address,
+
+        city: data.city,
+
+        state: data.state,
+
+        pinCode: data.pinCode,
+
+        consumerNumber:
+          data.consumerNumber || "",
+
+        consumerNo:
+          data.consumerNo ||
+          data.consumerNumber ||
+          "",
+
+        latitude: Number(data.latitude),
+
+        longitude: Number(data.longitude),
+
+        locationAddress:
+          data.locationAddress,
+
+        landmark: data.landmark || "",
+
+        sitePhotoUrl,
+
+        agreedToTerms:
+          data.agreedToTerms,
+
+        paymentMethod:
+          data.paymentMethod,
+
+        transactionId:
+          data.transactionId,
+
+        numberOfPanels:
+          Number(data.numberOfPanels),
+
+        sprinkler:
+          data.sprinkler,
+
+        walkwayAndLadder:
+          data.walkwayAndLadder,
+
+        requestStatus: "pending",
+
+        status: "pending",
+
+        isNewNotification: true,
       });
-    }
-
-    const user = await User.findOneAndUpdate(
-      { email: String(email).toLowerCase() },
-      {
-        $setOnInsert: {
-          email: String(email).toLowerCase(),
-        },
-        $set: {
-          googleUid: googleUid || "",
-          username: username || data.fullName || "",
-          email: String(email).toLowerCase(),
-          photoURL: photoURL || "",
-          provider: "google",
-          growCleaning: {
-            ...data,
-            userProfile: {
-              userName: username || data.fullName || "",
-              userToken,
-            },
-            latitude: Number(data.latitude),
-            longitude: Number(data.longitude),
-            numberOfPanels: Number(data.numberOfPanels) || 1,
-            sprinkler: Boolean(data.sprinkler),
-            walkwayAndLadder: Boolean(data.walkwayAndLadder),
-            consumerNumber: data.consumerNumber || "",
-            consumerNo: data.consumerNo || data.consumerNumber || "",
-            landmark: data.landmark || "",
-            sitePhotoUrl,
-            status: "pending",
-          },
-        },
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-      },
-    );
 
     return jsonResponse(
       {
         success: true,
-        message: "Application submitted successfully.",
+        message:
+          "Application submitted successfully.",
+
         data: {
-          id: user._id,
-          userToken,
-          status: user.growCleaning.status,
-          sitePhotoUrl: user.growCleaning.sitePhotoUrl,
-          createdAt: user.createdAt,
+          applicationId:
+            application._id,
+
+          status:
+            application.status,
+
+          sitePhotoUrl:
+            application.sitePhotoUrl,
+
+          createdAt:
+            application.createdAt,
         },
       },
       {
