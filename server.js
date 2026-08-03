@@ -143,6 +143,16 @@ app.post("/api/grow-cleaning", async (req, res) => {
   await sendApiResponse(res, POST, req);
 });
 
+app.options("/api/auth/google", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/auth/google/route.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.post("/api/auth/google", async (req, res) => {
+  const { POST } = await loadApiModule("src/app/api/auth/google/route.js");
+  await sendApiResponse(res, POST, req);
+});
+
 app.options("/api/user-profile", async (req, res) => {
   const { OPTIONS } = await loadApiModule("src/app/api/user-profile.js");
   await sendApiResponse(res, OPTIONS, req);

@@ -1,7 +1,6 @@
 import crypto from "crypto";
-import { connectToDatabase } from "@/lib/mongodb";
-
-import User from "@/models/User";
+import { connectToDatabase } from "../../../../lib/mongodb.js";
+import User from "../../../../models/User.js";
 
 function randomToken(bytes = 32) {
   return crypto.randomBytes(bytes).toString("hex");
@@ -14,7 +13,7 @@ function userCode() {
 export async function POST(request) {
   try {
     await connectToDatabase();
-
+    console.log("Connected to database");
     const body = await request.json();
 
     const {

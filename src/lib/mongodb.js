@@ -40,8 +40,8 @@ function normalizeMongoUri(uri) {
 const normalizedMongoUri = normalizeMongoUri(MONGO_URI);
 
 if (!normalizedMongoUri) {
-  throw new Error(
-    "Missing MongoDB connection string. Set MONGO_URI, MONGO_URL, or MONGODB_URI in your env.",
+  console.warn(
+    "⚠️ Missing MongoDB connection string. Set MONGO_URI, MONGO_URL, or MONGODB_URI in your env."
   );
 }
 
@@ -80,6 +80,12 @@ export async function connectToDatabase() {
   }
 
   if (!cached.promise) {
+    if (!normalizedMongoUri) {
+      throw new Error(
+        "Missing MongoDB connection string. Set MONGO_URI, MONGO_URL, or MONGODB_URI in your env."
+      );
+    }
+
     cached.promise = mongoose
       .connect(normalizedMongoUri, {
         bufferCommands: false,
