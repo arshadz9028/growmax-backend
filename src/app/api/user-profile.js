@@ -1,7 +1,7 @@
 
 import crypto from "crypto";
 import { connectToDatabase } from "../../lib/mongodb.js";
-import User from "../../models/User.js";
+import User from "../../models/user.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

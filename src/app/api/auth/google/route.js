@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { connectToDatabase } from "../../../../lib/mongodb.js";
-import User from "../../../../models/User.js";
+import User from "../../../../models/user.js";
 
 function randomToken(bytes = 32) {
   return crypto.randomBytes(bytes).toString("hex");
