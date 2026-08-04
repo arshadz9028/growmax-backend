@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { validateGrowCleaningPayload } from "../../lib/growCleaningValidation.js";
 import { connectToDatabase } from "../../lib/mongodb.js";
+import GrowCleaningApplication from "../../models/GrowCleaningApplication.js";
 import User from "../../models/user.js";
 
 const corsHeaders = {
@@ -25,17 +26,30 @@ function jsonResponse(body, init = {}) {
  * A8K2M9X4QP
  * 9DF2HJ8KLM
  */
-function generateUserToken(length = 10) {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-  let token = "";
-
-  while (token.length < length) {
-    token += chars[crypto.randomInt(chars.length)];
+function normalizeSelectedVisits(selectedVisits = []) {
+  if (!Array.isArray(selectedVisits)) {
+    return [];
   }
 
-  return token;
+  return selectedVisits
+    .filter((visit) => visit && typeof visit === "object")
+    .map((visit) => ({
+      date: visit.date || null,
+      status: visit.status || "UpComing",
+    }))
+    .filter((visit) => visit.date);
+}
+
+function buildConsumerManagement(selectedVisits = []) {
+  const normalizedVisits = normalizeSelectedVisits(selectedVisits);
+
+  return {
+    userCode: "",
+    totalVisit: normalizedVisits.length || 14,
+    markedVisit: normalizedVisits.length,
+    remainingVisit: Math.max(14 - normalizedVisits.length, 0),
+    selectedVisits: normalizedVisits,
+  };
 }
 
 async function uploadImageToCloudinary(base64Image) {
@@ -68,6 +82,37 @@ async function uploadImageToCloudinary(base64Image) {
   return result.secure_url || result.url || "";
 }
 
+async function registerUserService(user, serviceName = "Solar Cleaning") {
+  if (!user || !serviceName) {
+    return;
+  }
+
+  const normalizedName = String(serviceName).trim();
+
+  if (!normalizedName) {
+    return;
+  }
+
+  const services = Array.isArray(user.service) ? user.service : [];
+  const existingService = services.find(
+    (item) => item && String(item.name || "").toLowerCase() === normalizedName.toLowerCase()
+  );
+
+  if (existingService) {
+    existingService.reg_date = new Date();
+    existingService.active = false;
+  } else {
+    services.push({
+      name: normalizedName,
+      reg_date: new Date(),
+      active: false,
+    });
+  }
+
+  user.service = services;
+  await user.save();
+}
+
 export function OPTIONS() {
   return new Response(null, {
     status: 204,
@@ -75,40 +120,19 @@ export function OPTIONS() {
   });
 }
 
-export function GET() {
-  return jsonResponse({
-    success: true,
-    message: "Grow Cleaning API is available.",
-  });
-}
-
-export async function POST(request) {
+export async function GET(request) {
   try {
-    const payload = await request.json();
+    const { searchParams } = new URL(request.url);
+    const userIdParam = searchParams.get("userId") || "";
+    const emailParam = searchParams.get("email") || "";
+    const lookupUserId = String(userIdParam).trim();
+    const lookupEmail = String(emailParam).trim().toLowerCase();
 
-    const { userToken } = payload;
-
-    if (!userToken) {
+    if (!lookupUserId && !lookupEmail) {
       return jsonResponse(
         {
           success: false,
-          message: "User token is required.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    const { data, errors, isValid } =
-      validateGrowCleaningPayload(payload);
-
-    if (!isValid) {
-      return jsonResponse(
-        {
-          success: false,
-          message: "Validation failed.",
-          errors,
+          message: "User identifier is required.",
         },
         {
           status: 400,
@@ -118,9 +142,25 @@ export async function POST(request) {
 
     await connectToDatabase();
 
-    const user = await User.findOne({
-      "userProfile.userToken": userToken,
-    });
+    let user = null;
+
+    if (lookupUserId) {
+      if (/^[a-fA-F0-9]{24}$/.test(lookupUserId)) {
+        user = await User.findById(lookupUserId);
+      } else {
+        const fallbackQuery = [{ googleUid: lookupUserId }];
+
+        if (lookupEmail) {
+          fallbackQuery.push({ email: lookupEmail });
+        }
+
+        user = await User.findOne({
+          $or: fallbackQuery,
+        });
+      }
+    } else if (lookupEmail) {
+      user = await User.findOne({ email: lookupEmail });
+    }
 
     if (!user) {
       return jsonResponse(
@@ -134,94 +174,185 @@ export async function POST(request) {
       );
     }
 
-    let sitePhotoUrl = "";
+    const applications = await GrowCleaningApplication.find({
+      userId: user._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    if (data.sitePhotoBase64) {
-      sitePhotoUrl = await uploadImageToCloudinary(
-        data.sitePhotoBase64
+    return jsonResponse(
+      {
+        success: true,
+        data: applications || [],
+      },
+      {
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error("Failed to fetch grow cleaning applications:", error);
+
+    return jsonResponse(
+      {
+        success: false,
+        message: "Unable to fetch applications right now.",
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const payload = await request.json();
+    console.log("Received payload:", payload);
+    const requestItems = Array.isArray(payload?.requests)
+      ? payload.requests
+      : [payload];
+
+    if (!requestItems.length) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "No application data was provided.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const application =
-      await GrowCleaningApplication.create({
-        userId: user._id,
+    await connectToDatabase();
 
-        fullName: data.fullName,
+    let user = null;
+    const lookupEmail = String(
+      payload?.email || requestItems[0]?.email || ""
+    )
+      .trim()
+      .toLowerCase();
 
-        mobileNumber: data.mobileNumber,
+    if (payload?.userId) {
+      console.log("Looking up user by userId:", payload.userId);
+      const userIdValue = String(payload.userId).trim();
 
-        email: user.email,
+      if (/^[a-fA-F0-9]{24}$/.test(userIdValue)) {
+        user = await User.findById(userIdValue);
+              console.log("Looking up use1111:", user);
 
-        address: data.address,
+      } else {
+        const fallbackQuery = [];
 
-        city: data.city,
+        if (userIdValue) {
+          fallbackQuery.push({ googleUid: userIdValue });
+        }
 
-        state: data.state,
+        if (lookupEmail) {
+          fallbackQuery.push({ email: lookupEmail });
+        }
 
-        pinCode: data.pinCode,
+        if (fallbackQuery.length) {
+          user = await User.findOne({
+            $or: fallbackQuery,
+          });
+        }
+      }
+    } else if (lookupEmail) {
+      user = await User.findOne({ email: lookupEmail });
+    }
 
-        consumerNumber:
-          data.consumerNumber || "",
+    if (!user) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "User not found.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
 
-        consumerNo:
-          data.consumerNo ||
-          data.consumerNumber ||
-          "",
+    const createdApplications = [];
 
-        latitude: Number(data.latitude),
-
-        longitude: Number(data.longitude),
-
-        locationAddress:
-          data.locationAddress,
-
-        landmark: data.landmark || "",
-
-        sitePhotoUrl,
-
-        agreedToTerms:
-          data.agreedToTerms,
-
-        paymentMethod:
-          data.paymentMethod,
-
-        transactionId:
-          data.transactionId,
-
-        numberOfPanels:
-          Number(data.numberOfPanels),
-
-        sprinkler:
-          data.sprinkler,
-
-        walkwayAndLadder:
-          data.walkwayAndLadder,
-
-        requestStatus: "pending",
-
-        status: "pending",
-
-        isNewNotification: true,
+    for (const requestItem of requestItems) {
+      const itemPayload = requestItem || {};
+      const { data, errors, isValid } = validateGrowCleaningPayload({
+        ...payload,
+        ...itemPayload,
       });
+
+      if (!isValid) {
+        return jsonResponse(
+          {
+            success: false,
+            message: "Validation failed.",
+            errors,
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      let sitePhotoUrl = "";
+
+      if (data.sitePhotoBase64) {
+        sitePhotoUrl = await uploadImageToCloudinary(
+          data.sitePhotoBase64
+        );
+      }
+
+      const application = await GrowCleaningApplication.create({
+        userId: user._id,
+        fullName: data.fullName,
+        mobileNumber: data.mobileNumber,
+        email: itemPayload.email || user.email,
+        address: data.address,
+        city: data.city,
+        state: data.state || "N/A",
+        pinCode: data.pinCode || "000000",
+        consumerNumber: data.consumerNumber || "",
+        consumerNo: data.consumerNo || data.consumerNumber || "",
+        latitude: Number(data.latitude),
+        longitude: Number(data.longitude),
+        locationAddress: data.locationAddress,
+        landmark: data.landmark || "",
+        sitePhotoUrl,
+        agreedToTerms: data.agreedToTerms,
+        paymentMethod: data.paymentMethod,
+        transactionId: data.transactionId,
+        numberOfPanels: Number(data.numberOfPanels),
+        sprinkler: data.sprinkler,
+        walkwayAndLadder: data.walkwayAndLadder,
+        requestStatus: "pending",
+        status: "pending",
+        isNewNotification: true,
+        consumerManagement: buildConsumerManagement(itemPayload.selectedVisits),
+      });
+
+      createdApplications.push({
+        applicationId: application._id,
+        status: application.status,
+        sitePhotoUrl: application.sitePhotoUrl,
+        createdAt: application.createdAt,
+      });
+    }
+
+    await registerUserService(user, "Solar Cleaning");
 
     return jsonResponse(
       {
         success: true,
         message:
-          "Application submitted successfully.",
-
+          createdApplications.length > 1
+            ? "Applications submitted successfully."
+            : "Application submitted successfully.",
         data: {
-          applicationId:
-            application._id,
-
-          status:
-            application.status,
-
-          sitePhotoUrl:
-            application.sitePhotoUrl,
-
-          createdAt:
-            application.createdAt,
+          applications: createdApplications,
+          userToken: user.userProfile?.userToken || "",
         },
       },
       {

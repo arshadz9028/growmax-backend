@@ -73,6 +73,25 @@ const userSchema = new mongoose.Schema(
       type: userProfileSchema,
       required: true,
     },
+    service: {
+      type: [
+        {
+          name: {
+            type: String,
+            default: "",
+          },
+          reg_date: {
+            type: Date,
+            default: null,
+          },
+          active: {
+            type: Boolean,
+            default: false,
+          },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

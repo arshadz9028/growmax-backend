@@ -89,16 +89,6 @@ export function validateGrowCleaningPayload(payload = {}) {
     errors.city = "City is required.";
   }
 
-  if (!data.state) {
-    errors.state = "State is required.";
-  }
-
-  if (!data.pinCode) {
-    errors.pinCode = "PIN code is required.";
-  } else if (!isValidPinCode(data.pinCode)) {
-    errors.pinCode = "Enter a valid 6-digit PIN code.";
-  }
-
   if (!data.agreedToTerms) {
     errors.agreedToTerms = "Terms must be accepted.";
   }
@@ -113,10 +103,6 @@ export function validateGrowCleaningPayload(payload = {}) {
     errors.longitude = "Longitude is required.";
   } else if (!isValidCoordinate(data.longitude, -180, 180)) {
     errors.longitude = "Longitude must be between -180 and 180.";
-  }
-
-  if (!data.sitePhotoBase64) {
-    errors.sitePhotoBase64 = "Site photo is required.";
   }
 
   if (

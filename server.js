@@ -104,6 +104,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/fetchConsumer", authenticate);
+app.use("/api/fetchUser", optionalAuthenticate);
 app.use("/api/fetchUserToken", optionalAuthenticate);
 app.use("/api/user-profile", authenticate);
 app.use("/api/grow-cleaning", optionalAuthenticate);
@@ -125,6 +126,16 @@ app.options("/api/fetchUserToken", async (req, res) => {
 
 app.get("/api/fetchUserToken", async (req, res) => {
   const { GET } = await loadApiModule("src/app/api/fetchUserToken.js");
+  await sendApiResponse(res, GET, req);
+});
+
+app.options("/api/fetchUser", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/fetchUser.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/fetchUser", async (req, res) => {
+  const { GET } = await loadApiModule("src/app/api/fetchUser.js");
   await sendApiResponse(res, GET, req);
 });
 
