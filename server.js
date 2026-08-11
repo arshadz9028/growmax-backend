@@ -108,6 +108,11 @@ app.use("/api/fetchUser", optionalAuthenticate);
 app.use("/api/fetchUserToken", optionalAuthenticate);
 app.use("/api/user-profile", authenticate);
 app.use("/api/grow-cleaning", optionalAuthenticate);
+app.use("/api/solar-amc", optionalAuthenticate);
+app.use("/api/complaints", optionalAuthenticate);
+app.use("/api/tasks", optionalAuthenticate);
+app.use("/api/payment", optionalAuthenticate);
+// app.use("/api/payment/create-order", optionalAuthenticate);
 
 app.options("/api/fetchConsumer", async (req, res) => {
   const { OPTIONS } = await loadApiModule("src/app/api/fetchConsumer.js");
@@ -151,6 +156,95 @@ app.get("/api/grow-cleaning", async (req, res) => {
 
 app.post("/api/grow-cleaning", async (req, res) => {
   const { POST } = await loadApiModule("src/app/api/grow-cleaning.js");
+  await sendApiResponse(res, POST, req);
+});
+
+app.options("/api/solar-amc", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/solar-amc.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/solar-amc", async (req, res) => {
+  const { GET } = await loadApiModule("src/app/api/solar-amc.js");
+  await sendApiResponse(res, GET, req);
+});
+
+app.post("/api/solar-amc", async (req, res) => {
+  const { POST } = await loadApiModule("src/app/api/solar-amc.js");
+  await sendApiResponse(res, POST, req);
+});
+
+app.options("/api/complaints", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/complaints.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/complaints", async (req, res) => {
+  const { GET } = await loadApiModule("src/app/api/complaints.js");
+  await sendApiResponse(res, GET, req);
+});
+
+app.post("/api/complaints", async (req, res) => {
+  const { POST } = await loadApiModule("src/app/api/complaints.js");
+  await sendApiResponse(res, POST, req);
+});
+
+app.options("/api/tasks", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/tasks.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/tasks", async (req, res) => {
+  const { GET } = await loadApiModule("src/app/api/tasks.js");
+  await sendApiResponse(res, GET, req);
+});
+
+app.post("/api/tasks", async (req, res) => {
+  const { POST } = await loadApiModule("src/app/api/tasks.js");
+  await sendApiResponse(res, POST, req);
+});
+
+app.patch("/api/tasks", async (req, res) => {
+  const { PATCH } = await loadApiModule("src/app/api/tasks.js");
+  await sendApiResponse(res, PATCH, req);
+});
+
+app.delete("/api/tasks", async (req, res) => {
+  const { DELETE } = await loadApiModule("src/app/api/tasks.js");
+  await sendApiResponse(res, DELETE, req);
+});
+
+app.options("/api/tasks/:taskId", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/tasks.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.delete("/api/tasks/:taskId", async (req, res) => {
+  const { DELETE } = await loadApiModule("src/app/api/tasks.js");
+  await sendApiResponse(res, DELETE, req);
+});
+
+app.options("/api/payment/test", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/payment/test.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/payment/test", async (req, res) => {
+  const { GET } = await loadApiModule("src/app/api/payment/test.js");
+  await sendApiResponse(res, GET, req);
+});
+
+app.options("/api/payment/create-order", async (req, res) => {
+  const { OPTIONS } = await loadApiModule("src/app/api/payment/create-order.js");
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.post("/api/payment/create-order", async (req, res) => {
+  const { POST } = await loadApiModule("src/app/api/payment/create-order.js");
+  await sendApiResponse(res, POST, req);
+});
+app.post("/api/payment/verify", async (req, res) => {
+  const { POST } = await loadApiModule("src/app/api/payment/verify.js");
   await sendApiResponse(res, POST, req);
 });
 

@@ -90,18 +90,16 @@ const GrowCleaningApplicationSchema = new mongoose.Schema(
       trim: true,
     },
 
-    state: {
+   
+    totalAmount: {
+      type: Number,
+      default: 0,
+    },
+    serviceName: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
     },
-
-    pinCode: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
     consumerNumber: {
       type: String,
       default: "",

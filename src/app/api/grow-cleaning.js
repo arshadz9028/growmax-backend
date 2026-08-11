@@ -279,6 +279,9 @@ export async function POST(request) {
 
     for (const requestItem of requestItems) {
       const itemPayload = requestItem || {};
+      const resolvedServiceName = String(
+        itemPayload.serviceName || payload?.serviceName || "Solar Cleaning"
+      ).trim() || "Solar Cleaning";
       const { data, errors, isValid } = validateGrowCleaningPayload({
         ...payload,
         ...itemPayload,
@@ -307,13 +310,15 @@ export async function POST(request) {
 
       const application = await GrowCleaningApplication.create({
         userId: user._id,
+        
         fullName: data.fullName,
         mobileNumber: data.mobileNumber,
         email: itemPayload.email || user.email,
         address: data.address,
         city: data.city,
-        state: data.state || "N/A",
-        pinCode: data.pinCode || "000000",
+      
+        serviceName: resolvedServiceName,
+        totalAmount: Number(itemPayload.totalAmount) || 0,
         consumerNumber: data.consumerNumber || "",
         consumerNo: data.consumerNo || data.consumerNumber || "",
         latitude: Number(data.latitude),
@@ -339,9 +344,9 @@ export async function POST(request) {
         sitePhotoUrl: application.sitePhotoUrl,
         createdAt: application.createdAt,
       });
-    }
 
-    await registerUserService(user, "Solar Cleaning");
+      await registerUserService(user, resolvedServiceName);
+    }
 
     return jsonResponse(
       {
