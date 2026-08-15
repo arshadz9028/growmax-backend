@@ -88,6 +88,26 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
           },
+          blocked: {
+            type: Boolean,
+            default: false,
+          },
+          serviceStatus: {
+            type: String,
+            default: "inactive",
+          },
+          blockReason: {
+            type: String,
+            default: "",
+          },
+          blockedAt: {
+            type: Date,
+            default: null,
+          },
+          unblockedAt: {
+            type: Date,
+            default: null,
+          },
         },
       ],
       default: [],

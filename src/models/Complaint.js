@@ -52,8 +52,44 @@ const ComplaintSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "contacted", "resolved", "cancelled"],
+      enum: ["pending", "contacted", "resolved", "cancelled", "rejected"],
       default: "pending",
+    },
+    requestStatus: {
+      type: String,
+      default: "pending",
+    },
+    complaintStatus: {
+      type: String,
+      default: "pending",
+    },
+    isNewNotification: {
+      type: Boolean,
+      default: true,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+    resolutionNote: {
+      type: String,
+      default: "",
+    },
+    rejectionReason: {
+      type: String,
+      default: "",
+    },
+    adminNote: {
+      type: String,
+      default: "",
     },
   },
   {

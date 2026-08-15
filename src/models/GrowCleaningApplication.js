@@ -12,6 +12,25 @@ const VisitSchema = new mongoose.Schema(
       enum: ["UpComing", "Pending", "Completed"],
       default: "UpComing",
     },
+    assignedTechnicianId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Technician",
+      default: null,
+    },
+    assignedTechnicianName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    assignmentStatus: {
+      type: String,
+      enum: ["assigned", "unassigned"],
+      default: "unassigned",
+    },
+    assignedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     _id: false,

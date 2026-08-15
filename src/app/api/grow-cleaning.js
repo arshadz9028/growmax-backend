@@ -36,6 +36,10 @@ function normalizeSelectedVisits(selectedVisits = []) {
     .map((visit) => ({
       date: visit.date || null,
       status: visit.status || "UpComing",
+      assignedTechnicianId: visit.assignedTechnicianId ?? null,
+      assignedTechnicianName: visit.assignedTechnicianName || "",
+      assignmentStatus: visit.assignmentStatus || (visit.assignedTechnicianId ? "assigned" : "unassigned"),
+      assignedAt: visit.assignedAt || null,
     }))
     .filter((visit) => visit.date);
 }
