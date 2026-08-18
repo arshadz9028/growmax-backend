@@ -571,6 +571,132 @@ app.post("/api/user-profile", async (req, res) => {
   await sendApiResponse(res, POST, req);
 });
 
+app.options("/api/notifications/admin", async (req, res) => {
+  const { OPTIONS } = await loadApiModule(
+    "src/app/api/notifications/admin.js"
+  );
+
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/notifications/admin", async (req, res) => {
+  const { GET } = await loadApiModule(
+    "src/app/api/notifications/admin.js"
+  );
+
+  await sendApiResponse(res, GET, req);
+});
+
+app.post("/api/notifications/admin", async (req, res) => {
+  const { POST } = await loadApiModule(
+    "src/app/api/notifications/admin.js"
+  );
+
+  await sendApiResponse(res, POST, req);
+});
+
+app.patch("/api/notifications/admin", async (req, res) => {
+  const { PATCH } = await loadApiModule(
+    "src/app/api/notifications/admin.js"
+  );
+
+  await sendApiResponse(res, PATCH, req);
+});
+
+// =====================================================
+// NOTIFICATIONS - CONSUMER
+// =====================================================
+
+app.options("/api/notifications/consumer", async (req, res) => {
+  const { OPTIONS } = await loadApiModule(
+    "src/app/api/notifications/consumer.js"
+  );
+
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/notifications/consumer", async (req, res) => {
+  const { GET } = await loadApiModule(
+    "src/app/api/notifications/consumer.js"
+  );
+
+  await sendApiResponse(res, GET, req);
+});
+
+app.post("/api/notifications/consumer", async (req, res) => {
+  const { POST } = await loadApiModule(
+    "src/app/api/notifications/consumer.js"
+  );
+
+  await sendApiResponse(res, POST, req);
+});
+
+app.patch("/api/notifications/consumer", async (req, res) => {
+  const { PATCH } = await loadApiModule(
+    "src/app/api/notifications/consumer.js"
+  );
+
+  await sendApiResponse(res, PATCH, req);
+});
+
+
+// =====================================================
+// NOTIFICATIONS - TECHNICIAN
+// =====================================================
+
+app.options("/api/notifications/technician", async (req, res) => {
+  const { OPTIONS } = await loadApiModule(
+    "src/app/api/notifications/technician.js"
+  );
+
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/notifications/technician", async (req, res) => {
+  const { GET } = await loadApiModule(
+    "src/app/api/notifications/technician.js"
+  );
+
+  await sendApiResponse(res, GET, req);
+});
+
+app.post("/api/notifications/technician", async (req, res) => {
+  const { POST } = await loadApiModule(
+    "src/app/api/notifications/technician.js"
+  );
+
+  await sendApiResponse(res, POST, req);
+});
+
+app.patch("/api/notifications/technician", async (req, res) => {
+  const { PATCH } = await loadApiModule(
+    "src/app/api/notifications/technician.js"
+  );
+
+  await sendApiResponse(res, PATCH, req);
+});
+
+
+// =====================================================
+// NOTIFICATIONS - UNREAD COUNT
+// =====================================================
+
+app.options("/api/notifications/unread-count", async (req, res) => {
+  const { OPTIONS } = await loadApiModule(
+    "src/app/api/notifications/unread-count.js"
+  );
+
+  await sendApiResponse(res, OPTIONS, req);
+});
+
+app.get("/api/notifications/unread-count", async (req, res) => {
+  const { GET } = await loadApiModule(
+    "src/app/api/notifications/unread-count.js"
+  );
+
+  await sendApiResponse(res, GET, req);
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

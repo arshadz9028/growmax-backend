@@ -2,7 +2,7 @@ import { connectToDatabase } from "../../../lib/mongodb.js";
 import GrowCleaningApplication from "../../../models/GrowCleaningApplication.js";
 import SolarAMCApplication from "../../../models/SolarAMCApplication.js";
 import Complaint from "../../../models/Complaint.js";
-
+import { createNotification } from "../../../utils/notifications.js";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, PATCH, OPTIONS",
@@ -84,7 +84,10 @@ export async function PATCH(request) {
 
     if (!requestId) {
       return jsonResponse(
-        { success: false, message: "Request identifier is required." },
+        {
+          success: false,
+          message: "Request identifier is required.",
+        },
         { status: 400 }
       );
     }
@@ -93,64 +96,238 @@ export async function PATCH(request) {
 
     if (!payload || typeof payload !== "object") {
       return jsonResponse(
-        { success: false, message: "No update payload provided." },
+        {
+          success: false,
+          message: "No update payload provided.",
+        },
         { status: 400 }
       );
     }
 
-    // Normalize front-end status values to model enums to avoid validation errors
+    // Normalize frontend status values
     const normalizedPayload = { ...payload };
+
     if (typeof normalizedPayload.status === "string") {
       const s = normalizedPayload.status.toLowerCase();
-      if (s === "approved") normalizedPayload.status = "contacted";
-      if (s === "rejected" || s === "reject") normalizedPayload.status = "cancelled";
+
+      if (s === "approved") {
+        normalizedPayload.status = "contacted";
+      }
+
+      if (s === "rejected" || s === "reject") {
+        normalizedPayload.status = "cancelled";
+      }
     }
 
     await connectToDatabase();
 
     const models = [
-      { model: GrowCleaningApplication, type: "grow-cleaning" },
-      { model: SolarAMCApplication, type: "solar-amc" },
-      { model: Complaint, type: "complaint" },
+      {
+        model: GrowCleaningApplication,
+        type: "grow-cleaning",
+      },
+      {
+        model: SolarAMCApplication,
+        type: "solar-amc",
+      },
+      {
+        model: Complaint,
+        type: "complaint",
+      },
     ];
 
     let updated = null;
     let foundType = null;
+    let originalDocument = null;
 
+    /*
+     * Find request
+     */
     for (const entry of models) {
       const doc = await entry.model.findById(requestId);
+
       if (doc) {
+        /*
+         * Keep original values before updating.
+         */
+        originalDocument = doc.toObject
+          ? doc.toObject()
+          : { ...doc };
+
+        /*
+         * Update fields
+         */
         Object.keys(normalizedPayload).forEach((key) => {
-          // only set defined values
           if (normalizedPayload[key] !== undefined) {
             doc[key] = normalizedPayload[key];
           }
         });
 
         await doc.save();
-        updated = doc.toObject ? doc.toObject() : doc;
+
+        updated = doc.toObject
+          ? doc.toObject()
+          : doc;
+
         foundType = entry.type;
+
         break;
       }
     }
 
+    /*
+     * Request not found
+     */
     if (!updated) {
       return jsonResponse(
-        { success: false, message: "Request not found." },
+        {
+          success: false,
+          message: "Request not found.",
+        },
         { status: 404 }
       );
     }
 
+    /*
+     * =====================================================
+     * CREATE CONSUMER NOTIFICATION
+     * =====================================================
+     *
+     * Only for requests that belong to a consumer.
+     *
+     * Grow Cleaning / Solar AMC normally contain userId.
+     *
+     * Complaints can also be handled if they contain userId.
+     */
+
+    const previousStatus = originalDocument?.status;
+    const newStatus = updated?.status;
+
+    const statusChanged =
+      previousStatus !== newStatus;
+
+    if (statusChanged && updated?.userId) {
+      try {
+        let title = "Request Updated";
+        let message = "Your service request has been updated.";
+        let notificationType = "service";
+
+        /*
+         * APPROVED
+         *
+         * Your database internally converts:
+         * approved -> contacted
+         *
+         * So we use the incoming admin status to determine
+         * what notification should say.
+         */
+
+        const requestedStatus =
+          typeof payload.status === "string"
+            ? payload.status.toLowerCase()
+            : "";
+
+        if (
+          requestedStatus === "approved" ||
+          newStatus === "contacted"
+        ) {
+          title = "Request Approved";
+
+          message = `Your ${
+            updated.serviceName || foundType
+          } request has been approved.`;
+
+          notificationType = "approval";
+        }
+
+        /*
+         * REJECTED
+         */
+        else if (
+          requestedStatus === "rejected" ||
+          requestedStatus === "reject" ||
+          newStatus === "cancelled"
+        ) {
+          title = "Request Rejected";
+
+          message = `Your ${
+            updated.serviceName || foundType
+          } request has been rejected.`;
+
+          notificationType = "service";
+        }
+
+        /*
+         * OTHER STATUS CHANGE
+         */
+        else {
+          title = "Request Status Updated";
+
+          message = `Your ${
+            updated.serviceName || foundType
+          } request status has been updated to ${newStatus}.`;
+        }
+
+        await createNotification({
+          userId: updated.userId,
+
+          recipientType: "consumer",
+
+          title,
+
+          message,
+
+          type: notificationType,
+
+          data: {
+            requestId: updated._id,
+            serviceName:
+              updated.serviceName || foundType,
+
+            requestType: foundType,
+
+            previousStatus,
+
+            status: newStatus,
+
+            action: "view-request",
+          },
+        });
+
+        console.log(
+          `Consumer notification created for ${updated.userId}`
+        );
+      } catch (notificationError) {
+        /*
+         * Notification failure should NOT make the
+         * Admin's request update fail.
+         */
+        console.error(
+          "Failed to create consumer notification:",
+          notificationError
+        );
+      }
+    }
+
+    /*
+     * Return updated request
+     */
     return jsonResponse(
       {
         success: true,
         message: "Request updated successfully.",
-        data: { ...updated, requestType: foundType },
+        data: {
+          ...updated,
+          requestType: foundType,
+        },
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Failed to update admin request:", error);
+    console.error(
+      "Failed to update admin request:",
+      error
+    );
 
     return jsonResponse(
       {

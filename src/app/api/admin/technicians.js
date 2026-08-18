@@ -129,23 +129,104 @@ export async function REVIEW(request) {
       );
     }
 
-    const existingVisit =
-      technician.assignedVisits[visitMatchIndex].toObject?.() ||
-      technician.assignedVisits[visitMatchIndex];
+  const existingVisit =
+  technician.assignedVisits[visitMatchIndex].toObject?.() ||
+  technician.assignedVisits[visitMatchIndex];
 
-    technician.assignedVisits[visitMatchIndex] = {
-      ...existingVisit,
-      reviewStatus: validReviewStatus,
-      reviewedAt: payload.reviewedAt ? new Date(payload.reviewedAt) : new Date(),
-      status:
+const previousReviewStatus =
+  existingVisit.reviewStatus || null;
+
+technician.assignedVisits[visitMatchIndex] = {
+  ...existingVisit,
+
+  reviewStatus: validReviewStatus,
+
+  reviewedAt: payload.reviewedAt
+    ? new Date(payload.reviewedAt)
+    : new Date(),
+
+  status:
+    validReviewStatus === "approved"
+      ? existingVisit.status || "Completed"
+      : existingVisit.status || "UpComing",
+};
+
+technician.markModified &&
+  technician.markModified("assignedVisits");
+
+await technician.save();
+// =====================================================
+// TECHNICIAN → ADMIN NOTIFICATION
+// =====================================================
+
+if (previousReviewStatus !== validReviewStatus) {
+  try {
+    const notificationTitle =
+      validReviewStatus === "approved"
+        ? "Visit Approved by Technician"
+        : "Visit Rejected by Technician";
+
+    const notificationMessage =
+      validReviewStatus === "approved"
+        ? `${technician.name || "Technician"} has approved the assigned visit.`
+        : `${technician.name || "Technician"} has rejected the assigned visit.`;
+
+    await createNotification({
+      recipientType: "admin",
+
+      title: notificationTitle,
+
+      message: notificationMessage,
+
+      type:
         validReviewStatus === "approved"
-          ? existingVisit.status || "Completed"
-          : existingVisit.status || "UpComing",
-    };
+          ? "approval"
+          : "service",
 
-    technician.markModified && technician.markModified("assignedVisits");
-    await technician.save();
+      data: {
+        requestId,
+        visitIndex: visitIndexNumber,
 
+        technicianId: technician._id,
+
+        technicianName:
+          technician.name ||
+          technician.fullName ||
+          "",
+
+        serviceName:
+          existingVisit.serviceName || "",
+
+        consumerName:
+          existingVisit.consumerName || "",
+
+        previousReviewStatus,
+
+        reviewStatus: validReviewStatus,
+
+        reviewedAt:
+          technician.assignedVisits[
+            visitMatchIndex
+          ].reviewedAt,
+
+        action: "view-visit",
+      },
+    });
+
+    console.log(
+      `Admin notification created for technician review: ${validReviewStatus}`
+    );
+  } catch (notificationError) {
+    /*
+     * Notification failure should NOT make
+     * the technician review fail.
+     */
+    console.error(
+      "Failed to create admin notification:",
+      notificationError
+    );
+  }
+}
     return jsonResponse(
       {
         success: true,

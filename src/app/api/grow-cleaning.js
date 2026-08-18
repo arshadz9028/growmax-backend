@@ -3,7 +3,7 @@ import { validateGrowCleaningPayload } from "../../lib/growCleaningValidation.js
 import { connectToDatabase } from "../../lib/mongodb.js";
 import GrowCleaningApplication from "../../models/GrowCleaningApplication.js";
 import User from "../../models/user.js";
-
+import { createNotification } from "../../utils/notifications.js";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -244,7 +244,7 @@ export async function POST(request) {
 
       if (/^[a-fA-F0-9]{24}$/.test(userIdValue)) {
         user = await User.findById(userIdValue);
-              console.log("Looking up use1111:", user);
+        console.log("Looking up use1111:", user);
 
       } else {
         const fallbackQuery = [];
@@ -314,13 +314,13 @@ export async function POST(request) {
 
       const application = await GrowCleaningApplication.create({
         userId: user._id,
-        
+
         fullName: data.fullName,
         mobileNumber: data.mobileNumber,
         email: itemPayload.email || user.email,
         address: data.address,
         city: data.city,
-      
+
         serviceName: resolvedServiceName,
         totalAmount: Number(itemPayload.totalAmount) || 0,
         consumerNumber: data.consumerNumber || "",
@@ -341,13 +341,39 @@ export async function POST(request) {
         isNewNotification: true,
         consumerManagement: buildConsumerManagement(itemPayload.selectedVisits),
       });
+      // Create notification for admin
+      // if (process.env.ADMIN_NOTIFICATION_USER_ID) {
+      try {
+        await createNotification({
+          recipientType: "admin",
 
+          title: "New Solar Cleaning Request",
+
+          message: `${data.fullName} has submitted a new ${resolvedServiceName} request.`,
+
+          type: "service",
+
+          data: {
+            requestId: application._id,
+            consumerId: user._id,
+            serviceName: resolvedServiceName,
+            action: "view-request",
+          },
+        });
+      } catch (notificationError) {
+        console.error(
+          "Failed to create admin notification:",
+          notificationError
+        );
+      }
+      // }
       createdApplications.push({
         applicationId: application._id,
         status: application.status,
         sitePhotoUrl: application.sitePhotoUrl,
         createdAt: application.createdAt,
       });
+
 
       await registerUserService(user, resolvedServiceName);
     }

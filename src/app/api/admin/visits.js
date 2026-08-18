@@ -1,7 +1,7 @@
 import { connectToDatabase } from "../../../lib/mongodb.js";
 import GrowCleaningApplication from "../../../models/GrowCleaningApplication.js";
 import Technician from "../../../models/Technician.js";
-
+import { createNotification } from "../../../utils/notifications.js";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, PATCH, OPTIONS",
@@ -292,9 +292,52 @@ export async function PATCH(request) {
           technician.assignedVisits.push(visitRecord);
         }
 
-        technician.markModified && technician.markModified("assignedVisits");
-        await technician.save();
-      }
+technician.markModified && technician.markModified("assignedVisits");
+
+await technician.save();
+
+/*
+ * =====================================================
+ * CREATE TECHNICIAN NOTIFICATION
+ * =====================================================
+ */
+
+try {
+  await createNotification({
+    userId: technician._id,
+
+    recipientType: "technician",
+
+    title: "New Visit Assigned",
+
+    message: `A ${application.serviceName || "service"} visit has been assigned to you.`,
+
+    type: "service",
+
+    data: {
+      requestId: application._id,
+      visitIndex,
+      serviceName: application.serviceName || "",
+      consumerName: application.fullName || "",
+      dateOfVisit: visit.date || null,
+      address: application.address || "",
+      action: "view-assigned-visit",
+    },
+  });
+
+  console.log(
+    `Technician notification created for ${technician._id}`
+  );
+} catch (notificationError) {
+  /*
+   * Notification failure should NOT fail the
+   * technician assignment.
+   */
+  console.error(
+    "Failed to create technician notification:",
+    notificationError
+  );
+}      }
     }
 
     // ensure consumerManagement.selectedVisits updated in doc
