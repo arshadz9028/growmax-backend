@@ -5,7 +5,9 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const { authenticate, optionalAuthenticate } = require("./middleware/auth");
-
+const {
+  createNotification,
+} = require("./src/utils/notifications.js");
 const envPath = path.resolve(__dirname, ".env.local");
 const defaultEnvPath = path.resolve(__dirname, ".env");
 
@@ -14,12 +16,14 @@ dotenv.config({ path: defaultEnvPath });
 
 const app = express();
 
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json({ limit: "10mb" }));
 const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
@@ -218,7 +222,9 @@ app.patch("/api/tasks", async (req, res) => {
   await sendApiResponse(res, PATCH, req);
 });
 app.patch("/api/admin/technician-report/:technicianId", async (req, res) => {
-  const { PATCH } = await loadApiModule("src/app/api/admin/technician-report.js");
+  const { PATCH } = await loadApiModule(
+    "src/app/api/admin/technician-report.js",
+  );
   await sendApiResponse(res, PATCH, req);
 });
 
@@ -248,7 +254,9 @@ app.get("/api/payment/test", async (req, res) => {
 });
 
 app.options("/api/payment/create-order", async (req, res) => {
-  const { OPTIONS } = await loadApiModule("src/app/api/payment/create-order.js");
+  const { OPTIONS } = await loadApiModule(
+    "src/app/api/payment/create-order.js",
+  );
   await sendApiResponse(res, OPTIONS, req);
 });
 
@@ -288,7 +296,9 @@ app.post(
         requestId = requestIdBody;
       }
 
-      const { default: GrowCleaningApplication } = await loadApiModule("src/models/GrowCleaningApplication.js");
+      const { default: GrowCleaningApplication } = await loadApiModule(
+        "src/models/GrowCleaningApplication.js",
+      );
 
       await (async () => {
         // no-op wrapper to allow await at top-level of try
@@ -305,8 +315,14 @@ app.post(
         // search for application that has this visit index
         const apps = await GrowCleaningApplication.find({});
         for (const appDoc of apps) {
-          const sel = appDoc.consumerManagement && appDoc.consumerManagement.selectedVisits;
-          if (Array.isArray(sel) && visitIndex >= 0 && visitIndex < sel.length) {
+          const sel =
+            appDoc.consumerManagement &&
+            appDoc.consumerManagement.selectedVisits;
+          if (
+            Array.isArray(sel) &&
+            visitIndex >= 0 &&
+            visitIndex < sel.length
+          ) {
             application = appDoc;
             requestId = String(appDoc._id);
             break;
@@ -315,12 +331,23 @@ app.post(
       }
 
       if (!application) {
-        return res.status(404).json({ success: false, message: "Request/application not found." });
+        return res
+          .status(404)
+          .json({ success: false, message: "Request/application not found." });
       }
 
-      const selected = application.consumerManagement && application.consumerManagement.selectedVisits;
-      if (!Array.isArray(selected) || visitIndex == null || visitIndex < 0 || visitIndex >= selected.length) {
-        return res.status(404).json({ success: false, message: "Visit not found." });
+      const selected =
+        application.consumerManagement &&
+        application.consumerManagement.selectedVisits;
+      if (
+        !Array.isArray(selected) ||
+        visitIndex == null ||
+        visitIndex < 0 ||
+        visitIndex >= selected.length
+      ) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Visit not found." });
       }
 
       const visit = selected[visitIndex];
@@ -328,19 +355,26 @@ app.post(
       // helper to upload buffer to cloudinary
       const uploadBuffer = (buffer, folder, filename) =>
         new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream({ folder }, (error, result) => {
-            if (error) return reject(error);
-            resolve(result.secure_url || result.url || "");
-          });
+          const stream = cloudinary.uploader.upload_stream(
+            { folder },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result.secure_url || result.url || "");
+            },
+          );
           stream.end(buffer);
         });
 
-      const beforeFile = req.files && req.files.beforePhoto && req.files.beforePhoto[0];
-      const afterFile = req.files && req.files.afterPhoto && req.files.afterPhoto[0];
+      const beforeFile =
+        req.files && req.files.beforePhoto && req.files.beforePhoto[0];
+      const afterFile =
+        req.files && req.files.afterPhoto && req.files.afterPhoto[0];
 
       // support JSON payloads with base64 data URIs
-      const beforeBase64 = req.body && (req.body.beforePhotoBase64 || req.body.beforePhoto);
-      const afterBase64 = req.body && (req.body.afterPhotoBase64 || req.body.afterPhoto);
+      const beforeBase64 =
+        req.body && (req.body.beforePhotoBase64 || req.body.beforePhoto);
+      const afterBase64 =
+        req.body && (req.body.afterPhotoBase64 || req.body.afterPhoto);
 
       const dataUriToBuffer = (dataUri) => {
         if (!dataUri || typeof dataUri !== "string") return null;
@@ -350,16 +384,33 @@ app.post(
         return Buffer.from(base64, "base64");
       };
 
-      let beforeBuffer = beforeFile ? beforeFile.buffer : dataUriToBuffer(beforeBase64);
-      let afterBuffer = afterFile ? afterFile.buffer : dataUriToBuffer(afterBase64);
+      let beforeBuffer = beforeFile
+        ? beforeFile.buffer
+        : dataUriToBuffer(beforeBase64);
+      let afterBuffer = afterFile
+        ? afterFile.buffer
+        : dataUriToBuffer(afterBase64);
 
       if (!beforeBuffer || !afterBuffer) {
-        return res.status(400).json({ success: false, message: "Both beforePhoto and afterPhoto are required." });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Both beforePhoto and afterPhoto are required.",
+          });
       }
 
       const folder = "grow_cleaning_visits";
-      const beforeUrl = await uploadBuffer(beforeBuffer, folder, `before-${requestId}-${visitIndex}`);
-      const afterUrl = await uploadBuffer(afterBuffer, folder, `after-${requestId}-${visitIndex}`);
+      const beforeUrl = await uploadBuffer(
+        beforeBuffer,
+        folder,
+        `before-${requestId}-${visitIndex}`,
+      );
+      const afterUrl = await uploadBuffer(
+        afterBuffer,
+        folder,
+        `after-${requestId}-${visitIndex}`,
+      );
 
       // update visit
       visit.status = status;
@@ -367,63 +418,205 @@ app.post(
       visit.afterPhotoUrl = afterUrl;
       visit.submittedAt = new Date();
 
-      application.markModified && application.markModified("consumerManagement.selectedVisits");
-      await application.save();
+    application.markModified &&
+  application.markModified("consumerManagement.selectedVisits");
 
-      // Also store URLs into the assigned technician's assignedVisits array
-      try {
-          const technicianId = (visit.assignedTechnicianId && String(visit.assignedTechnicianId)) || req.body.assignedTechnicianId || req.body.technicianId || null;
-          const assignedName = visit.assignedTechnicianName || req.body.assignedTechnicianName || req.body.technicianName || null;
-          console.log("Assign -> resolved ids:", { technicianId, assignedName, visitAssigned: visit.assignedTechnicianId, visitAssignedName: visit.assignedTechnicianName });
-        if (technicianId) {
-          const { default: Technician } = await loadApiModule("src/models/Technician.js");
-          if (/^[A-Fa-f0-9]{24}$/.test(String(technicianId))) {
-            const technician = await Technician.findById(technicianId);
-            if (technician) {
-              const visitRecord = {
-                requestId: application._id,
-                visitIndex,
-                serviceName: application.serviceName || "",
-                consumerName: application.fullName || "",
-                mobileNumber: application.mobileNumber || application.phone || "",
-                dateOfVisit: visit.date || null,
-                location: application.address || "",
-                latitude: application.latitude ?? null,
-                longitude: application.longitude ?? null,
-                beforePhotoUrl: beforeUrl,
-                afterPhotoUrl: afterUrl,
-                assignedAt: visit.assignedAt || new Date(),
-                // When technician submits site photos, mark the technician-side status as in-progress
-                status: "In progress",
-              };
+await application.save();
 
-              const existingIndex = (technician.assignedVisits || []).findIndex((item) =>
-                String(item.requestId) === String(application._id) && Number(item.visitIndex) === Number(visitIndex)
-              );
+// Resolve technician information once
+const technicianId =
+  (visit.assignedTechnicianId &&
+    String(visit.assignedTechnicianId)) ||
+  req.body.assignedTechnicianId ||
+  req.body.technicianId ||
+  null;
 
-              if (!Array.isArray(technician.assignedVisits)) technician.assignedVisits = [];
-              if (existingIndex >= 0) {
-                technician.assignedVisits[existingIndex] = { ...(technician.assignedVisits[existingIndex].toObject?.() || technician.assignedVisits[existingIndex]), ...visitRecord };
-              } else {
-                technician.assignedVisits.push(visitRecord);
-              }
+const technicianName =
+  visit.assignedTechnicianName ||
+  req.body.assignedTechnicianName ||
+  req.body.technicianName ||
+  "Technician";
 
-              technician.markModified && technician.markModified("assignedVisits");
-              await technician.save();
-              console.log("Assigned visit saved to technician", technician._id.toString());
-            }
-          }
+
+// =====================================================
+// UPDATE TECHNICIAN'S ASSIGNED VISIT
+// =====================================================
+
+try {
+  console.log("Resolved technician:", {
+    technicianId,
+    technicianName,
+    visitAssigned: visit.assignedTechnicianId,
+    visitAssignedName: visit.assignedTechnicianName,
+  });
+
+  if (technicianId) {
+    const { default: Technician } = await loadApiModule(
+      "src/models/Technician.js"
+    );
+
+    if (/^[A-Fa-f0-9]{24}$/.test(String(technicianId))) {
+      const technician = await Technician.findById(technicianId);
+
+      if (technician) {
+        const visitRecord = {
+          requestId: application._id,
+          visitIndex,
+
+          serviceName:
+            application.serviceName || "",
+
+          consumerName:
+            application.fullName || "",
+
+          mobileNumber:
+            application.mobileNumber ||
+            application.phone ||
+            "",
+
+          dateOfVisit:
+            visit.date || null,
+
+          location:
+            application.address || "",
+
+          latitude:
+            application.latitude ?? null,
+
+          longitude:
+            application.longitude ?? null,
+
+          beforePhotoUrl: beforeUrl,
+          afterPhotoUrl: afterUrl,
+
+          assignedAt:
+            visit.assignedAt || new Date(),
+
+          status: "In progress",
+        };
+
+        if (!Array.isArray(technician.assignedVisits)) {
+          technician.assignedVisits = [];
         }
-      } catch (err) {
-        console.error("Failed to save assigned visit to technician:", err);
-      }
 
-      return res.json({ success: true, message: "Visit submitted.", data: { requestId, visitIndex, beforeUrl, afterUrl } });
-    } catch (error) {
-      console.error("Failed to complete visit:", error);
-      return res.status(500).json({ success: false, message: "Unable to submit visit right now.", error: error.message });
+        const existingIndex =
+          technician.assignedVisits.findIndex(
+            (item) =>
+              String(item.requestId) ===
+                String(application._id) &&
+              Number(item.visitIndex) ===
+                Number(visitIndex)
+          );
+
+        if (existingIndex >= 0) {
+          technician.assignedVisits[existingIndex] = {
+            ...(technician.assignedVisits[
+              existingIndex
+            ].toObject?.() ||
+              technician.assignedVisits[
+                existingIndex
+              ]),
+
+            ...visitRecord,
+          };
+        } else {
+          technician.assignedVisits.push(
+            visitRecord
+          );
+        }
+
+        technician.markModified &&
+          technician.markModified(
+            "assignedVisits"
+          );
+
+        await technician.save();
+
+        console.log(
+          "Assigned visit saved to technician",
+          technician._id.toString()
+        );
+      }
     }
   }
+} catch (err) {
+  console.error(
+    "Failed to save assigned visit to technician:",
+    err
+  );
+}
+
+
+// =====================================================
+// TECHNICIAN → ADMIN NOTIFICATION
+// =====================================================
+
+try {
+  await createNotification({
+    recipientType: "admin",
+
+    title: "Visit Submitted",
+
+    message: `${technicianName} has submitted the ${
+      application.serviceName || "service"
+    } visit with before and after photos.`,
+
+    type: "service",
+
+    data: {
+      requestId: application._id,
+      visitIndex,
+
+      technicianId,
+      technicianName,
+
+      serviceName:
+        application.serviceName || "",
+
+      consumerName:
+        application.fullName || "",
+
+      consumerId:
+        application.userId || null,
+
+      beforePhotoUrl: beforeUrl,
+      afterPhotoUrl: afterUrl,
+
+      status,
+
+      submittedAt:
+        visit.submittedAt,
+
+      action: "view-visit",
+    },
+  });
+
+  console.log(
+    "Admin notification created for technician visit submission."
+  );
+} catch (notificationError) {
+  console.error(
+    "Failed to create admin notification for visit submission:",
+    notificationError
+  );
+}
+
+      return res.json({
+        success: true,
+        message: "Visit submitted.",
+        data: { requestId, visitIndex, beforeUrl, afterUrl },
+      });
+    } catch (error) {
+      console.error("Failed to complete visit:", error);
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message: "Unable to submit visit right now.",
+          error: error.message,
+        });
+    }
+  },
 );
 
 app.options("/api/admin/requests", async (req, res) => {
@@ -451,10 +644,13 @@ app.get("/api/admin/users", async (req, res) => {
   await sendApiResponse(res, GET, req);
 });
 
-app.options("/api/admin/users/:userId/services/:serviceId", async (req, res) => {
-  const { OPTIONS } = await loadApiModule("src/app/api/admin/users.js");
-  await sendApiResponse(res, OPTIONS, req);
-});
+app.options(
+  "/api/admin/users/:userId/services/:serviceId",
+  async (req, res) => {
+    const { OPTIONS } = await loadApiModule("src/app/api/admin/users.js");
+    await sendApiResponse(res, OPTIONS, req);
+  },
+);
 
 app.patch("/api/admin/users/:userId/services/:serviceId", async (req, res) => {
   const { PATCH } = await loadApiModule("src/app/api/admin/users.js");
@@ -471,25 +667,37 @@ app.get("/api/admin/technicians", async (req, res) => {
   await sendApiResponse(res, GET, req);
 });
 
-app.options("/api/admin/technicians/:technicianId/assigned-visits", async (req, res) => {
-  const { OPTIONS } = await loadApiModule("src/app/api/admin/technicians.js");
-  await sendApiResponse(res, OPTIONS, req);
-});
+app.options(
+  "/api/admin/technicians/:technicianId/assigned-visits",
+  async (req, res) => {
+    const { OPTIONS } = await loadApiModule("src/app/api/admin/technicians.js");
+    await sendApiResponse(res, OPTIONS, req);
+  },
+);
 
-app.get("/api/admin/technicians/:technicianId/assigned-visits", async (req, res) => {
-  const { GET } = await loadApiModule("src/app/api/admin/technicians.js");
-  await sendApiResponse(res, GET, req);
-});
+app.get(
+  "/api/admin/technicians/:technicianId/assigned-visits",
+  async (req, res) => {
+    const { GET } = await loadApiModule("src/app/api/admin/technicians.js");
+    await sendApiResponse(res, GET, req);
+  },
+);
 
-app.options("/api/admin/technicians/:technicianId/assigned-visits/review", async (req, res) => {
-  const { OPTIONS } = await loadApiModule("src/app/api/admin/technicians.js");
-  await sendApiResponse(res, OPTIONS, req);
-});
+app.options(
+  "/api/admin/technicians/:technicianId/assigned-visits/review",
+  async (req, res) => {
+    const { OPTIONS } = await loadApiModule("src/app/api/admin/technicians.js");
+    await sendApiResponse(res, OPTIONS, req);
+  },
+);
 
-app.patch("/api/admin/technicians/:technicianId/assigned-visits/review", async (req, res) => {
-  const { REVIEW } = await loadApiModule("src/app/api/admin/technicians.js");
-  await sendApiResponse(res, REVIEW, req);
-});
+app.patch(
+  "/api/admin/technicians/:technicianId/assigned-visits/review",
+  async (req, res) => {
+    const { REVIEW } = await loadApiModule("src/app/api/admin/technicians.js");
+    await sendApiResponse(res, REVIEW, req);
+  },
+);
 
 app.post("/api/admin/technicians", async (req, res) => {
   const { POST } = await loadApiModule("src/app/api/admin/technicians.js");
@@ -572,33 +780,25 @@ app.post("/api/user-profile", async (req, res) => {
 });
 
 app.options("/api/notifications/admin", async (req, res) => {
-  const { OPTIONS } = await loadApiModule(
-    "src/app/api/notifications/admin.js"
-  );
+  const { OPTIONS } = await loadApiModule("src/app/api/notifications/admin.js");
 
   await sendApiResponse(res, OPTIONS, req);
 });
 
 app.get("/api/notifications/admin", async (req, res) => {
-  const { GET } = await loadApiModule(
-    "src/app/api/notifications/admin.js"
-  );
+  const { GET } = await loadApiModule("src/app/api/notifications/admin.js");
 
   await sendApiResponse(res, GET, req);
 });
 
 app.post("/api/notifications/admin", async (req, res) => {
-  const { POST } = await loadApiModule(
-    "src/app/api/notifications/admin.js"
-  );
+  const { POST } = await loadApiModule("src/app/api/notifications/admin.js");
 
   await sendApiResponse(res, POST, req);
 });
 
 app.patch("/api/notifications/admin", async (req, res) => {
-  const { PATCH } = await loadApiModule(
-    "src/app/api/notifications/admin.js"
-  );
+  const { PATCH } = await loadApiModule("src/app/api/notifications/admin.js");
 
   await sendApiResponse(res, PATCH, req);
 });
@@ -609,36 +809,31 @@ app.patch("/api/notifications/admin", async (req, res) => {
 
 app.options("/api/notifications/consumer", async (req, res) => {
   const { OPTIONS } = await loadApiModule(
-    "src/app/api/notifications/consumer.js"
+    "src/app/api/notifications/consumer.js",
   );
 
   await sendApiResponse(res, OPTIONS, req);
 });
 
 app.get("/api/notifications/consumer", async (req, res) => {
-  const { GET } = await loadApiModule(
-    "src/app/api/notifications/consumer.js"
-  );
+  const { GET } = await loadApiModule("src/app/api/notifications/consumer.js");
 
   await sendApiResponse(res, GET, req);
 });
 
 app.post("/api/notifications/consumer", async (req, res) => {
-  const { POST } = await loadApiModule(
-    "src/app/api/notifications/consumer.js"
-  );
+  const { POST } = await loadApiModule("src/app/api/notifications/consumer.js");
 
   await sendApiResponse(res, POST, req);
 });
 
 app.patch("/api/notifications/consumer", async (req, res) => {
   const { PATCH } = await loadApiModule(
-    "src/app/api/notifications/consumer.js"
+    "src/app/api/notifications/consumer.js",
   );
 
   await sendApiResponse(res, PATCH, req);
 });
-
 
 // =====================================================
 // NOTIFICATIONS - TECHNICIAN
@@ -646,7 +841,7 @@ app.patch("/api/notifications/consumer", async (req, res) => {
 
 app.options("/api/notifications/technician", async (req, res) => {
   const { OPTIONS } = await loadApiModule(
-    "src/app/api/notifications/technician.js"
+    "src/app/api/notifications/technician.js",
   );
 
   await sendApiResponse(res, OPTIONS, req);
@@ -654,7 +849,7 @@ app.options("/api/notifications/technician", async (req, res) => {
 
 app.get("/api/notifications/technician", async (req, res) => {
   const { GET } = await loadApiModule(
-    "src/app/api/notifications/technician.js"
+    "src/app/api/notifications/technician.js",
   );
 
   await sendApiResponse(res, GET, req);
@@ -662,7 +857,7 @@ app.get("/api/notifications/technician", async (req, res) => {
 
 app.post("/api/notifications/technician", async (req, res) => {
   const { POST } = await loadApiModule(
-    "src/app/api/notifications/technician.js"
+    "src/app/api/notifications/technician.js",
   );
 
   await sendApiResponse(res, POST, req);
@@ -670,12 +865,11 @@ app.post("/api/notifications/technician", async (req, res) => {
 
 app.patch("/api/notifications/technician", async (req, res) => {
   const { PATCH } = await loadApiModule(
-    "src/app/api/notifications/technician.js"
+    "src/app/api/notifications/technician.js",
   );
 
   await sendApiResponse(res, PATCH, req);
 });
-
 
 // =====================================================
 // NOTIFICATIONS - UNREAD COUNT
@@ -683,7 +877,7 @@ app.patch("/api/notifications/technician", async (req, res) => {
 
 app.options("/api/notifications/unread-count", async (req, res) => {
   const { OPTIONS } = await loadApiModule(
-    "src/app/api/notifications/unread-count.js"
+    "src/app/api/notifications/unread-count.js",
   );
 
   await sendApiResponse(res, OPTIONS, req);
@@ -691,7 +885,7 @@ app.options("/api/notifications/unread-count", async (req, res) => {
 
 app.get("/api/notifications/unread-count", async (req, res) => {
   const { GET } = await loadApiModule(
-    "src/app/api/notifications/unread-count.js"
+    "src/app/api/notifications/unread-count.js",
   );
 
   await sendApiResponse(res, GET, req);
