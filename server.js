@@ -5,7 +5,9 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const { authenticate, optionalAuthenticate } = require("./middleware/auth");
-import { createNotification } from "./src/utils/notifications.js";
+const {
+  createNotification,
+} = require("./src/utils/notifications.js");
 const envPath = path.resolve(__dirname, ".env.local");
 const defaultEnvPath = path.resolve(__dirname, ".env");
 
