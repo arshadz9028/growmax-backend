@@ -270,355 +270,467 @@ app.post("/api/payment/verify", async (req, res) => {
 });
 
 // Direct multipart endpoint for technicians to submit visit completion with photos
-app.post(
+// app.post(
+//   "/api/admin/visits/:visitId/complete",
+//   upload.fields([
+//     { name: "beforePhoto", maxCount: 1 },
+//     { name: "afterPhoto", maxCount: 1 },
+//   ]),
+//   async (req, res) => {
+//     try {
+//       const { visitId } = req.params;
+//       console.log("Received visit completion request for visitId:", visitId);
+//       const status = req.body.status || "Pending";
+//       const requestIdBody = req.body.requestId || req.body.request_id || "";
+
+//       // Resolve visit reference: try requestId-index or fallback to requestIdBody
+//       let requestId = null;
+//       let visitIndex = null;
+//       const direct = String(visitId || "").match(/^([A-Fa-f0-9]{24})-(\d+)$/);
+//       if (direct) {
+//         requestId = direct[1];
+//         visitIndex = parseInt(direct[2], 10);
+//       } else if (/^visit-(\d+)$/i.test(visitId)) {
+//         visitIndex = parseInt(visitId.split("-")[1], 10);
+//       } else if (/^[A-Fa-f0-9]{24}$/.test(requestIdBody)) {
+//         requestId = requestIdBody;
+//       }
+
+//       const { default: GrowCleaningApplication } = await loadApiModule(
+//         "src/models/GrowCleaningApplication.js",
+//       );
+
+//       await (async () => {
+//         // no-op wrapper to allow await at top-level of try
+//       })();
+
+//       // find application/document
+//       let application = null;
+//       const mongoose = require("mongoose");
+//       if (requestId) {
+//         application = await GrowCleaningApplication.findById(requestId);
+//       }
+
+//       if (!application && visitIndex != null) {
+//         // search for application that has this visit index
+//         const apps = await GrowCleaningApplication.find({});
+//         for (const appDoc of apps) {
+//           const sel =
+//             appDoc.consumerManagement &&
+//             appDoc.consumerManagement.selectedVisits;
+//           if (
+//             Array.isArray(sel) &&
+//             visitIndex >= 0 &&
+//             visitIndex < sel.length
+//           ) {
+//             application = appDoc;
+//             requestId = String(appDoc._id);
+//             break;
+//           }
+//         }
+//       }
+
+//       if (!application) {
+//         return res
+//           .status(404)
+//           .json({ success: false, message: "Request/application not found." });
+//       }
+
+//       const selected =
+//         application.consumerManagement &&
+//         application.consumerManagement.selectedVisits;
+//       if (
+//         !Array.isArray(selected) ||
+//         visitIndex == null ||
+//         visitIndex < 0 ||
+//         visitIndex >= selected.length
+//       ) {
+//         return res
+//           .status(404)
+//           .json({ success: false, message: "Visit not found." });
+//       }
+
+//       const visit = selected[visitIndex];
+
+//       // helper to upload buffer to cloudinary
+//       const uploadBuffer = (buffer, folder, filename) =>
+//         new Promise((resolve, reject) => {
+//           const stream = cloudinary.uploader.upload_stream(
+//             { folder },
+//             (error, result) => {
+//               if (error) return reject(error);
+//               resolve(result.secure_url || result.url || "");
+//             },
+//           );
+//           stream.end(buffer);
+//         });
+
+//       const beforeFile =
+//         req.files && req.files.beforePhoto && req.files.beforePhoto[0];
+//       const afterFile =
+//         req.files && req.files.afterPhoto && req.files.afterPhoto[0];
+
+//       // support JSON payloads with base64 data URIs
+//       const beforeBase64 =
+//         req.body && (req.body.beforePhotoBase64 || req.body.beforePhoto);
+//       const afterBase64 =
+//         req.body && (req.body.afterPhotoBase64 || req.body.afterPhoto);
+
+//       const dataUriToBuffer = (dataUri) => {
+//         if (!dataUri || typeof dataUri !== "string") return null;
+//         const match = dataUri.match(/^data:(.+);base64,(.*)$/);
+//         if (!match) return Buffer.from(dataUri, "base64");
+//         const base64 = match[2];
+//         return Buffer.from(base64, "base64");
+//       };
+
+//       let beforeBuffer = beforeFile
+//         ? beforeFile.buffer
+//         : dataUriToBuffer(beforeBase64);
+//       let afterBuffer = afterFile
+//         ? afterFile.buffer
+//         : dataUriToBuffer(afterBase64);
+
+//       if (!beforeBuffer || !afterBuffer) {
+//         return res
+//           .status(400)
+//           .json({
+//             success: false,
+//             message: "Both beforePhoto and afterPhoto are required.",
+//           });
+//       }
+
+//       const folder = "grow_cleaning_visits";
+//       const beforeUrl = await uploadBuffer(
+//         beforeBuffer,
+//         folder,
+//         `before-${requestId}-${visitIndex}`,
+//       );
+//       const afterUrl = await uploadBuffer(
+//         afterBuffer,
+//         folder,
+//         `after-${requestId}-${visitIndex}`,
+//       );
+
+//       // update visit
+//       visit.status = status;
+//       visit.beforePhotoUrl = beforeUrl;
+//       visit.afterPhotoUrl = afterUrl;
+//       visit.submittedAt = new Date();
+
+//     application.markModified &&
+//   application.markModified("consumerManagement.selectedVisits");
+
+// await application.save();
+
+// // =====================================================
+// // RESOLVE TECHNICIAN INFORMATION
+// // =====================================================
+
+// const technicianId =
+//   (visit.assignedTechnicianId &&
+//     String(visit.assignedTechnicianId)) ||
+//   req.body.assignedTechnicianId ||
+//   req.body.technicianId ||
+//   null;
+
+// const technicianName =
+//   visit.assignedTechnicianName ||
+//   req.body.assignedTechnicianName ||
+//   req.body.technicianName ||
+//   "Technician";
+
+// console.log("========================================");
+// console.log("VISIT SUBMISSION SAVED");
+// console.log("Request ID:", requestId);
+// console.log("Visit Index:", visitIndex);
+// console.log("Technician ID:", technicianId);
+// console.log("Technician Name:", technicianName);
+// console.log("========================================");
+
+
+// // =====================================================
+// // TECHNICIAN → ADMIN NOTIFICATION
+// // DO THIS IMMEDIATELY AFTER APPLICATION SAVE
+// // =====================================================
+
+// try {
+//   console.log(
+//     "🔔 Creating Admin notification for visit submission..."
+//   );
+
+//   const notification = await createNotification({
+//     recipientType: "admin",
+
+//     title: "Visit Submitted",
+
+//     message: `${technicianName} has submitted the ${
+//       application.serviceName || "service"
+//     } visit with before and after photos.`,
+
+//     type: "service",
+
+//     data: {
+//       requestId: String(application._id),
+
+//       visitIndex: Number(visitIndex),
+
+//       technicianId: technicianId
+//         ? String(technicianId)
+//         : null,
+
+//       technicianName,
+
+//       serviceName:
+//         application.serviceName || "",
+
+//       consumerName:
+//         application.fullName || "",
+
+//       consumerId: application.userId
+//         ? String(application.userId)
+//         : null,
+
+//       beforePhotoUrl: beforeUrl,
+
+//       afterPhotoUrl: afterUrl,
+
+//       status,
+
+//       submittedAt: visit.submittedAt,
+
+//       action: "view-visit",
+//     },
+//   });
+
+//   console.log(
+//     "✅ ADMIN NOTIFICATION CREATED:",
+//     notification?._id
+//   );
+
+// } catch (notificationError) {
+
+//   console.error(
+//     "❌ ADMIN NOTIFICATION FAILED:",
+//     notificationError
+//   );
+
+// }
+
+
+// // =====================================================
+// // UPDATE TECHNICIAN'S ASSIGNED VISIT
+// // =====================================================
+
+// try {
+
+//   console.log(
+//     "Updating technician assigned visit..."
+//   );
+
+//   if (technicianId) {
+
+//     const { default: Technician } =
+//       await loadApiModule(
+//         "src/models/Technician.js"
+//       );
+
+//     if (
+//       /^[A-Fa-f0-9]{24}$/.test(
+//         String(technicianId)
+//       )
+//     ) {
+
+//       const technician =
+//         await Technician.findById(
+//           technicianId
+//         );
+
+//       if (technician) {
+
+//         const visitRecord = {
+
+//           requestId: application._id,
+
+//           visitIndex,
+
+//           serviceName:
+//             application.serviceName || "",
+
+//           consumerName:
+//             application.fullName || "",
+
+//           mobileNumber:
+//             application.mobileNumber ||
+//             application.phone ||
+//             "",
+
+//           dateOfVisit:
+//             visit.date || null,
+
+//           location:
+//             application.address || "",
+
+//           latitude:
+//             application.latitude ?? null,
+
+//           longitude:
+//             application.longitude ?? null,
+
+//           beforePhotoUrl:
+//             beforeUrl,
+
+//           afterPhotoUrl:
+//             afterUrl,
+
+//           assignedAt:
+//             visit.assignedAt || new Date(),
+
+//           status: "In progress",
+//         };
+
+
+//         if (
+//           !Array.isArray(
+//             technician.assignedVisits
+//           )
+//         ) {
+//           technician.assignedVisits = [];
+//         }
+
+
+//         const existingIndex =
+//           technician.assignedVisits.findIndex(
+//             (item) =>
+//               String(item.requestId) ===
+//                 String(application._id) &&
+//               Number(item.visitIndex) ===
+//                 Number(visitIndex)
+//           );
+
+
+//         if (existingIndex >= 0) {
+
+//           technician.assignedVisits[
+//             existingIndex
+//           ] = {
+
+//             ...(
+//               technician
+//                 .assignedVisits[
+//                   existingIndex
+//                 ]
+//                 .toObject?.() ||
+//               technician
+//                 .assignedVisits[
+//                   existingIndex
+//                 ]
+//             ),
+
+//             ...visitRecord,
+//           };
+
+//         } else {
+
+//           technician.assignedVisits.push(
+//             visitRecord
+//           );
+
+//         }
+
+
+//         technician.markModified &&
+//           technician.markModified(
+//             "assignedVisits"
+//           );
+
+//         await technician.save();
+
+//         console.log(
+//           "✅ Assigned visit saved to technician:",
+//           technician._id.toString()
+//         );
+
+//       } else {
+
+//         console.warn(
+//           "⚠️ Technician not found:",
+//           technicianId
+//         );
+
+//       }
+
+//     } else {
+
+//       console.warn(
+//         "⚠️ Invalid technician ID:",
+//         technicianId
+//       );
+
+//     }
+
+//   } else {
+
+//     console.warn(
+//       "⚠️ No technician ID found for this visit."
+//     );
+
+//   }
+
+// } catch (err) {
+
+//   console.error(
+//     "❌ Failed to save assigned visit to technician:",
+//     err
+//   );
+
+// }
+//       return res.json({
+//         success: true,
+//         message: "Visit submitted.",
+//         data: { requestId, visitIndex, beforeUrl, afterUrl },
+//       });
+//     } catch (error) {
+//       console.error("Failed to complete visit:", error);
+//       return res
+//         .status(500)
+//         .json({
+//           success: false,
+//           message: "Unable to submit visit right now.",
+//           error: error.message,
+//         });
+//     }
+//   },
+// );
+app.options(
   "/api/admin/visits/:visitId/complete",
-  upload.fields([
-    { name: "beforePhoto", maxCount: 1 },
-    { name: "afterPhoto", maxCount: 1 },
-  ]),
   async (req, res) => {
-    try {
-      const { visitId } = req.params;
-      console.log("Received visit completion request for visitId:", visitId);
-      const status = req.body.status || "Pending";
-      const requestIdBody = req.body.requestId || req.body.request_id || "";
-
-      // Resolve visit reference: try requestId-index or fallback to requestIdBody
-      let requestId = null;
-      let visitIndex = null;
-      const direct = String(visitId || "").match(/^([A-Fa-f0-9]{24})-(\d+)$/);
-      if (direct) {
-        requestId = direct[1];
-        visitIndex = parseInt(direct[2], 10);
-      } else if (/^visit-(\d+)$/i.test(visitId)) {
-        visitIndex = parseInt(visitId.split("-")[1], 10);
-      } else if (/^[A-Fa-f0-9]{24}$/.test(requestIdBody)) {
-        requestId = requestIdBody;
-      }
-
-      const { default: GrowCleaningApplication } = await loadApiModule(
-        "src/models/GrowCleaningApplication.js",
-      );
-
-      await (async () => {
-        // no-op wrapper to allow await at top-level of try
-      })();
-
-      // find application/document
-      let application = null;
-      const mongoose = require("mongoose");
-      if (requestId) {
-        application = await GrowCleaningApplication.findById(requestId);
-      }
-
-      if (!application && visitIndex != null) {
-        // search for application that has this visit index
-        const apps = await GrowCleaningApplication.find({});
-        for (const appDoc of apps) {
-          const sel =
-            appDoc.consumerManagement &&
-            appDoc.consumerManagement.selectedVisits;
-          if (
-            Array.isArray(sel) &&
-            visitIndex >= 0 &&
-            visitIndex < sel.length
-          ) {
-            application = appDoc;
-            requestId = String(appDoc._id);
-            break;
-          }
-        }
-      }
-
-      if (!application) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Request/application not found." });
-      }
-
-      const selected =
-        application.consumerManagement &&
-        application.consumerManagement.selectedVisits;
-      if (
-        !Array.isArray(selected) ||
-        visitIndex == null ||
-        visitIndex < 0 ||
-        visitIndex >= selected.length
-      ) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Visit not found." });
-      }
-
-      const visit = selected[visitIndex];
-
-      // helper to upload buffer to cloudinary
-      const uploadBuffer = (buffer, folder, filename) =>
-        new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder },
-            (error, result) => {
-              if (error) return reject(error);
-              resolve(result.secure_url || result.url || "");
-            },
-          );
-          stream.end(buffer);
-        });
-
-      const beforeFile =
-        req.files && req.files.beforePhoto && req.files.beforePhoto[0];
-      const afterFile =
-        req.files && req.files.afterPhoto && req.files.afterPhoto[0];
-
-      // support JSON payloads with base64 data URIs
-      const beforeBase64 =
-        req.body && (req.body.beforePhotoBase64 || req.body.beforePhoto);
-      const afterBase64 =
-        req.body && (req.body.afterPhotoBase64 || req.body.afterPhoto);
-
-      const dataUriToBuffer = (dataUri) => {
-        if (!dataUri || typeof dataUri !== "string") return null;
-        const match = dataUri.match(/^data:(.+);base64,(.*)$/);
-        if (!match) return Buffer.from(dataUri, "base64");
-        const base64 = match[2];
-        return Buffer.from(base64, "base64");
-      };
-
-      let beforeBuffer = beforeFile
-        ? beforeFile.buffer
-        : dataUriToBuffer(beforeBase64);
-      let afterBuffer = afterFile
-        ? afterFile.buffer
-        : dataUriToBuffer(afterBase64);
-
-      if (!beforeBuffer || !afterBuffer) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Both beforePhoto and afterPhoto are required.",
-          });
-      }
-
-      const folder = "grow_cleaning_visits";
-      const beforeUrl = await uploadBuffer(
-        beforeBuffer,
-        folder,
-        `before-${requestId}-${visitIndex}`,
-      );
-      const afterUrl = await uploadBuffer(
-        afterBuffer,
-        folder,
-        `after-${requestId}-${visitIndex}`,
-      );
-
-      // update visit
-      visit.status = status;
-      visit.beforePhotoUrl = beforeUrl;
-      visit.afterPhotoUrl = afterUrl;
-      visit.submittedAt = new Date();
-
-    application.markModified &&
-  application.markModified("consumerManagement.selectedVisits");
-
-await application.save();
-
-// Resolve technician information once
-const technicianId =
-  (visit.assignedTechnicianId &&
-    String(visit.assignedTechnicianId)) ||
-  req.body.assignedTechnicianId ||
-  req.body.technicianId ||
-  null;
-
-const technicianName =
-  visit.assignedTechnicianName ||
-  req.body.assignedTechnicianName ||
-  req.body.technicianName ||
-  "Technician";
-
-
-// =====================================================
-// UPDATE TECHNICIAN'S ASSIGNED VISIT
-// =====================================================
-
-try {
-  console.log("Resolved technician:", {
-    technicianId,
-    technicianName,
-    visitAssigned: visit.assignedTechnicianId,
-    visitAssignedName: visit.assignedTechnicianName,
-  });
-
-  if (technicianId) {
-    const { default: Technician } = await loadApiModule(
-      "src/models/Technician.js"
+    const { OPTIONS } = await loadApiModule(
+      "src/app/api/admin/visit-complete.js"
     );
 
-    if (/^[A-Fa-f0-9]{24}$/.test(String(technicianId))) {
-      const technician = await Technician.findById(technicianId);
-
-      if (technician) {
-        const visitRecord = {
-          requestId: application._id,
-          visitIndex,
-
-          serviceName:
-            application.serviceName || "",
-
-          consumerName:
-            application.fullName || "",
-
-          mobileNumber:
-            application.mobileNumber ||
-            application.phone ||
-            "",
-
-          dateOfVisit:
-            visit.date || null,
-
-          location:
-            application.address || "",
-
-          latitude:
-            application.latitude ?? null,
-
-          longitude:
-            application.longitude ?? null,
-
-          beforePhotoUrl: beforeUrl,
-          afterPhotoUrl: afterUrl,
-
-          assignedAt:
-            visit.assignedAt || new Date(),
-
-          status: "In progress",
-        };
-
-        if (!Array.isArray(technician.assignedVisits)) {
-          technician.assignedVisits = [];
-        }
-
-        const existingIndex =
-          technician.assignedVisits.findIndex(
-            (item) =>
-              String(item.requestId) ===
-                String(application._id) &&
-              Number(item.visitIndex) ===
-                Number(visitIndex)
-          );
-
-        if (existingIndex >= 0) {
-          technician.assignedVisits[existingIndex] = {
-            ...(technician.assignedVisits[
-              existingIndex
-            ].toObject?.() ||
-              technician.assignedVisits[
-                existingIndex
-              ]),
-
-            ...visitRecord,
-          };
-        } else {
-          technician.assignedVisits.push(
-            visitRecord
-          );
-        }
-
-        technician.markModified &&
-          technician.markModified(
-            "assignedVisits"
-          );
-
-        await technician.save();
-
-        console.log(
-          "Assigned visit saved to technician",
-          technician._id.toString()
-        );
-      }
-    }
+    await sendApiResponse(
+      res,
+      OPTIONS,
+      req
+    );
   }
-} catch (err) {
-  console.error(
-    "Failed to save assigned visit to technician:",
-    err
-  );
-}
-
-
-// =====================================================
-// TECHNICIAN → ADMIN NOTIFICATION
-// =====================================================
-
-try {
-  await createNotification({
-    recipientType: "admin",
-
-    title: "Visit Submitted",
-
-    message: `${technicianName} has submitted the ${
-      application.serviceName || "service"
-    } visit with before and after photos.`,
-
-    type: "service",
-
-    data: {
-      requestId: application._id,
-      visitIndex,
-
-      technicianId,
-      technicianName,
-
-      serviceName:
-        application.serviceName || "",
-
-      consumerName:
-        application.fullName || "",
-
-      consumerId:
-        application.userId || null,
-
-      beforePhotoUrl: beforeUrl,
-      afterPhotoUrl: afterUrl,
-
-      status,
-
-      submittedAt:
-        visit.submittedAt,
-
-      action: "view-visit",
-    },
-  });
-
-  console.log(
-    "Admin notification created for technician visit submission."
-  );
-} catch (notificationError) {
-  console.error(
-    "Failed to create admin notification for visit submission:",
-    notificationError
-  );
-}
-
-      return res.json({
-        success: true,
-        message: "Visit submitted.",
-        data: { requestId, visitIndex, beforeUrl, afterUrl },
-      });
-    } catch (error) {
-      console.error("Failed to complete visit:", error);
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Unable to submit visit right now.",
-          error: error.message,
-        });
-    }
-  },
 );
 
+app.post(
+  "/api/admin/visits/:visitId/complete",
+  async (req, res) => {
+    const { POST } = await loadApiModule(
+      "src/app/api/admin/visit-complete.js"
+    );
+
+    await sendApiResponse(
+      res,
+      POST,
+      req
+    );
+  }
+);
 app.options("/api/admin/requests", async (req, res) => {
   const { OPTIONS } = await loadApiModule("src/app/api/admin/request.js");
   await sendApiResponse(res, OPTIONS, req);
